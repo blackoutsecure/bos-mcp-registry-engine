@@ -1,6 +1,6 @@
 {
   "name": "bos-mcp-registry-engine",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A static, host‑agnostic registry engine for MCP services, supporting validation, listing, and discovery.",
   "type": "module",
   "main": "scripts/generate-registry.js",
