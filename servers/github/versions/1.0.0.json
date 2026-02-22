@@ -1,70 +1,19 @@
 {
   "version": "1.0.0",
   "releaseDate": "2024-11-20",
-  "mcpVersion": "0.1",
-  "runtime": "node",
-  "minNodeVersion": "16.0.0",
-  "installCommand": "npm install -g @modelcontextprotocol/server-github",
-  "runCommand": "mcp-server-github",
-  "capabilities": {
-    "resources": true,
-    "tools": true,
-    "prompts": false
-  },
-  "tools": [
+  "packages": [
     {
-      "name": "create_or_update_file",
-      "description": "Create or update a single file in a GitHub repository"
-    },
-    {
-      "name": "search_repositories",
-      "description": "Search for GitHub repositories"
-    },
-    {
-      "name": "create_repository",
-      "description": "Create a new GitHub repository in your account"
-    },
-    {
-      "name": "get_file_contents",
-      "description": "Get the contents of a file or directory from a GitHub repository"
-    },
-    {
-      "name": "push_files",
-      "description": "Push multiple files to a GitHub repository in a single commit"
-    },
-    {
-      "name": "create_issue",
-      "description": "Create a new issue in a GitHub repository"
-    },
-    {
-      "name": "create_pull_request",
-      "description": "Create a new pull request in a GitHub repository"
-    },
-    {
-      "name": "fork_repository",
-      "description": "Fork a GitHub repository to your account or specified organization"
-    },
-    {
-      "name": "create_branch",
-      "description": "Create a new branch in a GitHub repository"
+      "registryType": "npm",
+      "identifier": "@modelcontextprotocol/server-github",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
     }
   ],
-  "resources": [
-    {
-      "name": "file",
-      "description": "Read file contents from a GitHub repository"
-    },
-    {
-      "name": "issue",
-      "description": "Access GitHub issue details"
-    },
-    {
-      "name": "pull_request",
-      "description": "Access GitHub pull request details"
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "example": true
     }
-  ],
-  "configuration": {
-    "required": [],
-    "optional": []
   }
 }

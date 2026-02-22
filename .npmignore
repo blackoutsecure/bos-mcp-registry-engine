@@ -3,7 +3,7 @@
 .github/
 node_modules/
 registry/
-dist/
+dist/registry/
 build/
 
 # Local/editor files

@@ -5,6 +5,10 @@ name: 'Blackout Secure MCP Registry Engine'
 description: 'A static, host‑agnostic registry engine for MCP services, supporting validation, listing, and discovery.'
 author: 'Blackout Secure'
 
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+
 branding:
   icon: 'package'
   color: 'blue'
@@ -15,34 +19,10 @@ inputs:
     required: false
     default: './servers'
   output:
-    description: 'Path to the output registry directory'
+    description: 'Path to the output base directory (registry will be generated under <output>/registry)'
     required: false
-    default: './registry'
-  cloudflare_pages:
-    description: 'Generate Cloudflare Pages _headers and _redirects files'
+    default: './dist'
+  deployment_environment:
+    description: 'Deployment environment profile (github for GitHub Pages, cloudflare for Cloudflare Pages/Workers)'
     required: false
-    default: 'false'
-
-runs:
-  using: 'composite'
-  steps:
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-
-    - name: Install dependencies
-      shell: bash
-      run: npm ci --omit=dev
-      working-directory: ${{ github.action_path }}
-
-    - name: Generate registry
-      shell: bash
-      run: |
-        echo "🚀 Generating MCP Registry..."
-        node ${{ github.action_path }}/scripts/generate-registry.js
-        echo "✓ Registry generated successfully"
-      env:
-        SERVERS_DIR: ${{ inputs.source }}
-        REGISTRY_DIR: ${{ inputs.output }}
-        CLOUDFLARE_PAGES: ${{ inputs.cloudflare_pages }}
+    default: 'github'

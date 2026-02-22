@@ -1,72 +1,62 @@
 # GitHub Copilot Instructions
 
-You are working in a repository for the **Blackout Secure MCP Registry Engine**, a static MCP registry builder.
+You are working in **Blackout Secure MCP Registry Engine**, a static MCP registry generator and GitHub Marketplace Action.
 
-## Scope
+## Public, safe, and marketplace-ready content
 
-- Do NOT build an MCP server here.
-- Do NOT add Docker, Express, or any backend.
-- This repository is only for:
-  - Generating static MCP registry JSON
-  - Generating static index pages for root and version paths
-  - Validating MCP server definitions against schemas
-  - Optionally ingesting additional server definitions from configured local paths
-  - Optionally generating Cloudflare Pages `_headers` when explicitly enabled
-   - Optionally generating Cloudflare Pages `_redirects` when explicitly enabled
-  - Producing registry output under `/registry/v0.1`
-  - Exposing a reusable GitHub Action that runs the generator
+- Never include secrets, credentials, tokens, private URLs, internal endpoints, or personal data in code, docs, examples, tests, or logs.
+- Use only repository/public references in documentation and examples.
+- Keep wording suitable for public Marketplace users.
 
-## Data Model
+## Authoritative references
 
-1. Each server definition uses:
-   - servers/<name>/server.json
-   - servers/<name>/versions/<semver>.json
+- Registry: https://registry.modelcontextprotocol.io/
+- Docs: https://registry.modelcontextprotocol.io/docs
+- OpenAPI: https://registry.modelcontextprotocol.io/openapi.yaml
+- Upstream repo: https://github.com/modelcontextprotocol/registry
 
-2. The generator script:
-   - scripts/generate-registry.js
-  must:
-   - Read all servers from /servers
-  - Optionally read additional server roots listed in mcp-registry.config.json
-   - Validate JSON against MCP schemas
-   - Generate:
-       /registry/index.html
-       /registry/v0.1/index.html
-       /registry/v0.1/servers.json
-       /registry/v0.1/servers/<name>/versions/<version>.json
-       /registry/v0.1/servers/<name>/versions/latest.json
-    - Optionally generate:
-       /registry/_headers (only when Cloudflare mode is enabled)
-       /registry/_redirects (only when Cloudflare mode is enabled)
+## Repository scope
 
-3. The output must be 100% static and host‑agnostic.
+- Static generation only. No runtime MCP server.
+- No backend/web server additions (no Express/API runtime/Dockerized service runtime).
+- No workflow orchestration files in this repo (`.github/workflows/*`).
+- This repo contains generator logic and Marketplace Action packaging only.
 
-## GitHub Action
+## Current project layout (must remain accurate)
 
-The Action in `action.yml` must:
-- Runs the Node.js generator
-- Accepts inputs:
-    - source (default: ./servers)
-    - output (default: ./registry)
-  - cloudflare_pages (default: false)
-- Does NOT define workflows; only the Action itself.
+- Server definitions: `servers/<name>/server.json` and `servers/<name>/versions/<semver>.json`
+- Schemas: `src/schemas/*.json`
+- Default config: `src/lib/mcp-registry.config.json`
+- Entrypoint: `src/index.js`
+- Output: `dist/registry`
 
-## Guardrails
+## Generator/output requirements
 
-- Add .github/workflows here as part of the Action definition.
-- Implement an MCP server.
-- Add runtime hosting logic.
+The generator must:
 
-## Engineering Expectations
+- Validate manifests using `src/schemas/server.schema.json` and `src/schemas/version.schema.json`
+- Read local servers from `servers/`
+- Optionally read external server roots from `src/lib/mcp-registry.config.json` (or `MCP_REGISTRY_CONFIG` override)
+- Generate static versioned registry artifacts under `dist/registry/v0.1`
+- Generate `dist/registry/v0` as compatibility alias of `v0.1`
+- Generate hosting profile files:
+  - `deployment_environment=github` → `.nojekyll`
+  - `deployment_environment=cloudflare` → `_headers` and `_redirects`
 
-- Keep implementation small, composable, and host‑agnostic.
-- Provide clear error messages when validation fails.
-- Preserve the registry output contract and folder layout.
-- Avoid unrelated refactors.
+## Action contract (`action.yml`)
 
-## Reference Template
+- Runtime: Node.js (`node20`)
+- Inputs:
+  - `source` (default `./servers`)
+  - `output` (default `./dist`)
+  - `deployment_environment` (default `github`; supported: `github`, `cloudflare`)
 
-Use the GitHub MCP Server sample as the baseline format:
-- servers/github/server.json
-- servers/github/versions/1.0.0.json
+## Static-only limitations
 
-All code, scripts, and docs updates must follow these rules.
+Do not implement dynamic endpoints or flows that require server compute (auth exchange, publish/write APIs, runtime validation service, dynamic filtering/pagination execution).
+
+## Change discipline
+
+- Keep implementations minimal, explicit, and host-agnostic.
+- Preserve compatibility with official MCP registry behavior where static hosting allows.
+- Ensure README/action docs reflect only what is implemented in this repository.

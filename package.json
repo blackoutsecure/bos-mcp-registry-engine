@@ -2,12 +2,16 @@
   "name": "bos-mcp-registry-engine",
   "version": "1.0.2",
   "description": "A static, host‑agnostic registry engine for MCP services, supporting validation, listing, and discovery.",
-  "type": "module",
-  "main": "scripts/generate-registry.js",
+  "main": "dist/index.js",
   "scripts": {
-    "generate": "node scripts/generate-registry.js",
-    "validate": "node scripts/generate-registry.js --validate-only",
-    "test": "npm run validate"
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && ncc build src/index.js -o dist",
+    "generate": "node src/index.js",
+    "validate": "node src/index.js --validate-only",
+    "test": "mocha",
+    "lint": "eslint . --fix",
+    "format": "prettier --write \"**/*.{js,json,md,yml,yaml}\"",
+    "check": "npm run build && eslint . && prettier --check \"**/*.{js,json,md,yml,yaml}\" && npm run validate && npm test && npm audit --omit=dev --audit-level=high"
   },
   "keywords": [
     "mcp",
@@ -28,13 +32,21 @@
   },
   "homepage": "https://github.com/blackoutsecure/bos-mcp-registry-engine#readme",
   "dependencies": {
+    "@actions/core": "^1.11.1",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "fs-extra": "^11.2.0",
     "semver": "^7.5.4"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@vercel/ncc": "^0.38.1",
+    "chai": "^4.5.0",
+    "eslint": "^9.39.1",
+    "mocha": "^10.8.2",
+    "prettier": "^3.6.2"
+  },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20"
   }
 }

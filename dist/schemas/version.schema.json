@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "not": {
+        "const": "latest"
+      }
+    },
+    "releaseDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["registryType", "identifier", "transport"],
+        "properties": {
+          "registryType": {
+            "type": "string"
+          },
+          "registryBaseUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "fileSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "runtimeHint": {
+            "type": "string"
+          },
+          "transport": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["stdio", "http", "sse", "streamable-http"]
+              }
+            },
+            "additionalProperties": true
+          },
+          "runtimeArguments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "packageArguments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "environmentVariables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "remotes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["transportType", "url"],
+        "properties": {
+          "transportType": {
+            "type": "string",
+            "enum": ["http", "sse", "streamable-http"]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "_meta": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "anyOf": [{ "required": ["packages"] }, { "required": ["remotes"] }],
+  "additionalProperties": true
+}
