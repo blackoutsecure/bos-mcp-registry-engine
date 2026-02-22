@@ -15,24 +15,27 @@ import semver from 'semver';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const WORKSPACE_ROOT = path.resolve(__dirname, '..');
+const ACTION_ROOT = path.resolve(__dirname, '..');
+const CALLER_WORKSPACE_ROOT = process.env.GITHUB_WORKSPACE
+  ? path.resolve(process.env.GITHUB_WORKSPACE)
+  : process.cwd();
 
 const REGISTRY_VERSION = '0.1';
-const SOURCE_SERVERS_DIR = resolveWorkspacePath(process.env.SERVERS_DIR, 'servers');
-const OUTPUT_ROOT_DIR = resolveWorkspacePath(process.env.REGISTRY_DIR, 'registry');
+const SOURCE_SERVERS_DIR = resolveCallerWorkspacePath(process.env.SERVERS_DIR, 'servers');
+const OUTPUT_ROOT_DIR = resolveCallerWorkspacePath(process.env.REGISTRY_DIR, 'registry');
 const REGISTRY_OUTPUT_DIR = path.join(OUTPUT_ROOT_DIR, `v${REGISTRY_VERSION}`);
 const ENABLE_CLOUDFLARE_PAGES_MODE = parseEnvBoolean(process.env.CLOUDFLARE_PAGES, false);
-const SCHEMAS_DIR = path.join(WORKSPACE_ROOT, 'schemas');
-const CONFIG_FILE = path.join(WORKSPACE_ROOT, 'mcp-registry.config.json');
+const SCHEMAS_DIR = path.join(ACTION_ROOT, 'schemas');
+const CONFIG_FILE = path.join(CALLER_WORKSPACE_ROOT, 'mcp-registry.config.json');
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
 
-function resolveWorkspacePath(value, fallback) {
+function resolveCallerWorkspacePath(value, fallback) {
   if (!value || !String(value).trim()) {
-    return path.resolve(WORKSPACE_ROOT, fallback);
+    return path.resolve(CALLER_WORKSPACE_ROOT, fallback);
   }
-  return path.resolve(WORKSPACE_ROOT, String(value));
+  return path.resolve(CALLER_WORKSPACE_ROOT, String(value));
 }
 
 function parseEnvBoolean(value, fallback = false) {
@@ -131,7 +134,7 @@ async function resolveServerRoots(config) {
       continue;
     }
 
-    const resolvedPath = path.resolve(WORKSPACE_ROOT, rawPath);
+    const resolvedPath = path.resolve(CALLER_WORKSPACE_ROOT, rawPath);
     if (!(await fs.pathExists(resolvedPath))) {
       console.warn(`⚠ Skipping external path not found: ${resolvedPath}`);
       continue;
