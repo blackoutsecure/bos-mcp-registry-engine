@@ -37337,8 +37337,9 @@ const PROJECT_CONFIG = {
       source: 'servers',
       output: 'dist',
       registryDirectoryName: 'registry',
+      registryVersion: '0.1',
+      externalRepositories: [],
       deploymentEnvironment: 'github',
-      configFile: 'src/lib/mcp-registry.config.json',
     },
     env: {
       source: 'SERVERS_DIR',
@@ -37346,14 +37347,40 @@ const PROJECT_CONFIG = {
       deploymentEnvironment: 'DEPLOYMENT_ENVIRONMENT',
       validateOnly: 'MCP_REGISTRY_VALIDATE_ONLY',
       configFile: 'MCP_REGISTRY_CONFIG',
+      externalRepositories: 'MCP_REGISTRY_EXTERNAL_REPOSITORIES',
     },
     inputs: {
       source: 'source',
       output: 'output',
       deploymentEnvironment: 'deployment_environment',
+      configFile: 'config',
+      externalRepositories: 'external_repositories',
     },
   },
 };
+
+function parseExternalRepositories(value) {
+  if (!value || !String(value).trim()) {
+    return undefined;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(String(value));
+  } catch {
+    throw new Error(
+      'Invalid external repositories value. Provide a JSON array for external_repositories.',
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      'Invalid external repositories value. external_repositories must be a JSON array.',
+    );
+  }
+
+  return parsed;
+}
 
 function normalizeDeploymentEnvironment(value, fallback) {
   if (!value || !String(value).trim()) {
@@ -37385,6 +37412,7 @@ function getRuntimeConfig(
   const deploymentEnvironmentEnv = env[envKeys.deploymentEnvironment];
   const validateOnlyEnv = env[envKeys.validateOnly];
   const configFileEnv = env[envKeys.configFile];
+  const externalRepositoriesEnv = env[envKeys.externalRepositories];
 
   const source = isGitHubActionRuntime
     ? core.getInput(inputs.source) || sourceEnv || defaults.source
@@ -37410,15 +37438,27 @@ function getRuntimeConfig(
     ? parseBoolean(validateOnlyEnv, false)
     : cliArgs.validateOnly;
 
-  const configFile = cliArgs.configFile || configFileEnv || defaults.configFile;
+  const configFile = isGitHubActionRuntime
+    ? core.getInput(inputs.configFile) || configFileEnv
+    : cliArgs.configFile || configFileEnv;
+
+  const externalRepositoriesRaw = isGitHubActionRuntime
+    ? core.getInput(inputs.externalRepositories) || externalRepositoriesEnv
+    : externalRepositoriesEnv;
+
+  const externalRepositories = parseExternalRepositories(
+    externalRepositoriesRaw,
+  );
 
   return {
     source,
     output,
     registryDirectoryName: defaults.registryDirectoryName,
+    registryVersion: defaults.registryVersion,
     deploymentEnvironment,
     validateOnly,
     configFile,
+    externalRepositories,
   };
 }
 
@@ -37446,9 +37486,13 @@ const path = __nccwpck_require__(6928);
 const Ajv = __nccwpck_require__(2463);
 const addFormats = __nccwpck_require__(2815);
 const semver = __nccwpck_require__(2088);
+const {
+  PROJECT_CONFIG,
+  assertValidDeploymentEnvironment,
+} = __nccwpck_require__(6067);
 const { formatValidationPath, resolveWorkspacePath } = __nccwpck_require__(4068);
 
-const REGISTRY_VERSION = '0.1';
+const REGISTRY_VERSION = PROJECT_CONFIG.runtime.defaults.registryVersion;
 
 function createValidator(ajv, schema) {
   const validate = ajv.compile(schema);
@@ -37503,17 +37547,41 @@ async function loadSchemas(ajv, schemasDir) {
   };
 }
 
-async function loadConfig(configFile, registryVersion) {
+async function loadConfig(
+  configFile,
+  registryVersion,
+  defaultExternalRepositories,
+  explicitExternalRepositories,
+) {
+  const fallbackConfig = {
+    version: registryVersion,
+    externalRepositories: Array.isArray(explicitExternalRepositories)
+      ? explicitExternalRepositories
+      : [...defaultExternalRepositories],
+  };
+
+  if (!configFile) {
+    return fallbackConfig;
+  }
+
   if (!(await fs.pathExists(configFile))) {
-    return { version: registryVersion, externalRepositories: [] };
+    return fallbackConfig;
   }
 
   const config = await fs.readJson(configFile);
+
+  if (Array.isArray(explicitExternalRepositories)) {
+    return {
+      version: config.version || registryVersion,
+      externalRepositories: explicitExternalRepositories,
+    };
+  }
+
   return {
     version: config.version || registryVersion,
     externalRepositories: Array.isArray(config.externalRepositories)
       ? config.externalRepositories
-      : [],
+      : [...defaultExternalRepositories],
   };
 }
 
@@ -37522,30 +37590,7 @@ async function resolveConfigFilePath(workspaceRoot, explicitPath) {
     return resolveWorkspacePath(workspaceRoot, explicitPath, '');
   }
 
-  const candidates = [
-    resolveWorkspacePath(
-      workspaceRoot,
-      undefined,
-      'src/lib/mcp-registry.config.json',
-    ),
-    process.env.GITHUB_ACTION_PATH
-      ? path.join(
-          process.env.GITHUB_ACTION_PATH,
-          'src',
-          'lib',
-          'mcp-registry.config.json',
-        )
-      : null,
-    __nccwpck_require__.ab + "mcp-registry.config.json",
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    if (await fs.pathExists(candidate)) {
-      return candidate;
-    }
-  }
-
-  return candidates[0];
+  return null;
 }
 
 function normalizeExternalPath(entry) {
@@ -38176,30 +38221,34 @@ async function createVersionAlias(outputRootDir, registryVersion) {
 }
 
 async function runRegistryGeneration(options = {}) {
+  const { defaults, env: envKeys } = PROJECT_CONFIG.runtime;
   const workspaceRoot =
     options.workspaceRoot || process.env.GITHUB_WORKSPACE || process.cwd();
-  const registryVersion = options.registryVersion || REGISTRY_VERSION;
+  const registryVersion = options.registryVersion || defaults.registryVersion;
   const sourceServersDir = resolveWorkspacePath(
     workspaceRoot,
-    options.sourceDir || process.env.SERVERS_DIR,
-    'servers',
+    options.sourceDir || process.env[envKeys.source],
+    defaults.source,
   );
   const outputBaseDir = resolveWorkspacePath(
     workspaceRoot,
-    options.outputDir || process.env.REGISTRY_DIR,
-    'dist',
+    options.outputDir || process.env[envKeys.output],
+    defaults.output,
   );
-  const registryDirectoryName = options.registryDirectoryName || 'registry';
+  const registryDirectoryName =
+    options.registryDirectoryName || defaults.registryDirectoryName;
   const outputRootDir = path.join(outputBaseDir, registryDirectoryName);
   const registryOutputDir = path.join(outputRootDir, `v${registryVersion}`);
   const deploymentEnvironment =
     options.deploymentEnvironment ||
-    process.env.DEPLOYMENT_ENVIRONMENT ||
-    'github';
+    process.env[envKeys.deploymentEnvironment] ||
+    defaults.deploymentEnvironment;
+
+  assertValidDeploymentEnvironment(deploymentEnvironment);
 
   const configFile = await resolveConfigFilePath(
     workspaceRoot,
-    options.configFile || process.env.MCP_REGISTRY_CONFIG,
+    options.configFile || process.env[envKeys.configFile],
   );
   const schemasDir = await resolveSchemasDirectory(options.schemasDir);
 
@@ -38223,18 +38272,21 @@ async function runRegistryGeneration(options = {}) {
     console.log(
       '☁️ Deployment environment: cloudflare (_headers and _redirects will be generated)\n',
     );
-  } else if (deploymentEnvironment === 'github') {
+  }
+
+  if (deploymentEnvironment === 'github') {
     console.log(
       '🐙 Deployment environment: github (.nojekyll will be generated for GitHub Pages)\n',
-    );
-  } else {
-    throw new Error(
-      `Invalid deployment environment selected: ${deploymentEnvironment}`,
     );
   }
 
   const validators = await loadSchemas(ajv, schemasDir);
-  const config = await loadConfig(configFile, registryVersion);
+  const config = await loadConfig(
+    configFile,
+    registryVersion,
+    defaults.externalRepositories,
+    options.externalRepositories,
+  );
   const servers = await readServers(
     workspaceRoot,
     sourceServersDir,
@@ -41296,9 +41348,11 @@ async function run() {
       sourceDir: runtimeConfig.source,
       outputDir: runtimeConfig.output,
       registryDirectoryName: runtimeConfig.registryDirectoryName,
+      registryVersion: runtimeConfig.registryVersion,
       deploymentEnvironment: runtimeConfig.deploymentEnvironment,
       validateOnly: runtimeConfig.validateOnly,
       configFile: runtimeConfig.configFile,
+      externalRepositories: runtimeConfig.externalRepositories,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

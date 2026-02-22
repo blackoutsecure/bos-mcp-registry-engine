@@ -27,8 +27,9 @@ const PROJECT_CONFIG = {
       source: 'servers',
       output: 'dist',
       registryDirectoryName: 'registry',
+      registryVersion: '0.1',
+      externalRepositories: [],
       deploymentEnvironment: 'github',
-      configFile: 'src/lib/mcp-registry.config.json',
     },
     env: {
       source: 'SERVERS_DIR',
@@ -36,14 +37,40 @@ const PROJECT_CONFIG = {
       deploymentEnvironment: 'DEPLOYMENT_ENVIRONMENT',
       validateOnly: 'MCP_REGISTRY_VALIDATE_ONLY',
       configFile: 'MCP_REGISTRY_CONFIG',
+      externalRepositories: 'MCP_REGISTRY_EXTERNAL_REPOSITORIES',
     },
     inputs: {
       source: 'source',
       output: 'output',
       deploymentEnvironment: 'deployment_environment',
+      configFile: 'config',
+      externalRepositories: 'external_repositories',
     },
   },
 };
+
+function parseExternalRepositories(value) {
+  if (!value || !String(value).trim()) {
+    return undefined;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(String(value));
+  } catch {
+    throw new Error(
+      'Invalid external repositories value. Provide a JSON array for external_repositories.',
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      'Invalid external repositories value. external_repositories must be a JSON array.',
+    );
+  }
+
+  return parsed;
+}
 
 function normalizeDeploymentEnvironment(value, fallback) {
   if (!value || !String(value).trim()) {
@@ -75,6 +102,7 @@ function getRuntimeConfig(
   const deploymentEnvironmentEnv = env[envKeys.deploymentEnvironment];
   const validateOnlyEnv = env[envKeys.validateOnly];
   const configFileEnv = env[envKeys.configFile];
+  const externalRepositoriesEnv = env[envKeys.externalRepositories];
 
   const source = isGitHubActionRuntime
     ? core.getInput(inputs.source) || sourceEnv || defaults.source
@@ -100,15 +128,27 @@ function getRuntimeConfig(
     ? parseBoolean(validateOnlyEnv, false)
     : cliArgs.validateOnly;
 
-  const configFile = cliArgs.configFile || configFileEnv || defaults.configFile;
+  const configFile = isGitHubActionRuntime
+    ? core.getInput(inputs.configFile) || configFileEnv
+    : cliArgs.configFile || configFileEnv;
+
+  const externalRepositoriesRaw = isGitHubActionRuntime
+    ? core.getInput(inputs.externalRepositories) || externalRepositoriesEnv
+    : externalRepositoriesEnv;
+
+  const externalRepositories = parseExternalRepositories(
+    externalRepositoriesRaw,
+  );
 
   return {
     source,
     output,
     registryDirectoryName: defaults.registryDirectoryName,
+    registryVersion: defaults.registryVersion,
     deploymentEnvironment,
     validateOnly,
     configFile,
+    externalRepositories,
   };
 }
 

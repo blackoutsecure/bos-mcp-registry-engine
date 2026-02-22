@@ -37,7 +37,12 @@ jobs:
         with:
           source: './servers'
           output: './dist'
+          # Optional (default): github
           deployment_environment: 'github'
+          # Optional
+          # config: './config/custom-registry-config.json'
+          # Optional JSON array
+          # external_repositories: '["../team-repo/servers", {"path":"../shared/servers"}]'
 ```
 
 ### Inputs
@@ -46,7 +51,9 @@ jobs:
 | ------------------------ | --------------------------------------------------------- | ----------- |
 | `source`                 | Path to servers directory                                 | `./servers` |
 | `output`                 | Base output path (registry writes to `<output>/registry`) | `./dist`    |
-| `deployment_environment` | `github` or `cloudflare`                                  | `github`    |
+| `deployment_environment` | Optional: `github` or `cloudflare`                        | `github`    |
+| `config`                 | Optional path to custom config file                       | _(none)_    |
+| `external_repositories`  | Optional JSON array of extra servers roots                | _(none)_    |
 
 ## Local usage
 
@@ -68,6 +75,11 @@ or:
 MCP_REGISTRY_CONFIG=./config/custom-registry-config.json npm run generate
 ```
 
+No config file is required by default. Built-in defaults are:
+
+- `version`: `0.1`
+- `externalRepositories`: `[]`
+
 ## Required input layout
 
 ```text
@@ -83,13 +95,152 @@ Sample files:
 - [servers/github/server.json](servers/github/server.json)
 - [servers/github/versions/1.0.0.json](servers/github/versions/1.0.0.json)
 
-## Default config location
+## Manifest format
 
-Default config file path:
+### server.json
 
-- [src/lib/mcp-registry.config.json](src/lib/mcp-registry.config.json)
+Minimum required fields:
 
-External repositories can be added via `externalRepositories` in that file.
+- `name`
+- `description`
+
+Recommended fields:
+
+- `$schema`
+- `title`
+- `websiteUrl`
+- `repository`
+- `_meta`
+
+Example:
+
+```json
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.github/github",
+  "title": "GitHub",
+  "description": "Official GitHub MCP server for repositories, pull requests, issues, and related workflows.",
+  "websiteUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/github",
+  "repository": {
+    "url": "https://github.com/modelcontextprotocol/servers",
+    "source": "github",
+    "subfolder": "src/github"
+  }
+}
+```
+
+### versions/<semver>.json
+
+Required fields:
+
+- `version` (must be valid semver and cannot be `latest`)
+- At least one of:
+  - `packages`
+  - `remotes`
+
+Example:
+
+```json
+{
+  "version": "1.0.0",
+  "releaseDate": "2024-11-20",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@modelcontextprotocol/server-github",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
+```
+
+## Optional config file
+
+If needed, provide a custom config file with:
+
+- `version`
+- `externalRepositories`
+
+Use a config file when you want to:
+
+- Aggregate servers from additional local repositories
+- Keep environment-specific source roots outside default `servers/`
+- Override registry version metadata for controlled publishing flows
+
+Recommendation:
+
+- Use `external_repositories` input for simple GitHub Action setups.
+- Use `config` when you also need to set `version` and keep a reusable checked-in config file.
+
+### externalRepositories format
+
+`externalRepositories` must be an array of local directory references. Each entry can be:
+
+- A string path
+- An object with `path`
+- An object with `serversPath`
+
+Each resolved path must point to a `servers`-style directory containing:
+
+- `<server-name>/server.json`
+- `<server-name>/versions/<semver>.json`
+
+Example:
+
+```json
+{
+  "version": "0.1",
+  "externalRepositories": [
+    "../another-repo/servers",
+    { "path": "../team-repo/servers" },
+    { "serversPath": "../shared/servers" }
+  ]
+}
+```
+
+Notes:
+
+- Paths are resolved from the workspace root.
+- Invalid or missing paths are skipped with a warning.
+- Duplicate server names are ignored after first load.
+
+### GitHub Action example with config
+
+```yaml
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate registry with external repositories
+        uses: blackoutsecure/bos-mcp-registry-engine@v1
+        with:
+          source: './servers'
+          output: './dist'
+          deployment_environment: 'github'
+          config: './config/custom-registry-config.json'
+```
+
+### GitHub Action example with external_repositories input
+
+```yaml
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate registry with direct external repositories
+        uses: blackoutsecure/bos-mcp-registry-engine@v1
+        with:
+          source: './servers'
+          output: './dist'
+          # Optional (default): github
+          deployment_environment: 'github'
+          external_repositories: '["../another-repo/servers", {"path":"../shared/servers"}]'
+```
 
 ## Output
 

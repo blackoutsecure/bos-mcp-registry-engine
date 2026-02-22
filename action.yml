@@ -26,3 +26,9 @@ inputs:
     description: 'Deployment environment profile (github for GitHub Pages, cloudflare for Cloudflare Pages/Workers)'
     required: false
     default: 'github'
+  config:
+    description: 'Optional path to custom registry config file (supports version and externalRepositories)'
+    required: false
+  external_repositories:
+    description: 'Optional JSON array of additional servers roots (e.g. ["../team/servers", {"path":"../shared/servers"}])'
+    required: false

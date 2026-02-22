@@ -23,6 +23,7 @@ describe('project-config', () => {
 
     expect(config.source).to.equal('./custom-servers');
     expect(config.output).to.equal('./build-registry');
+    expect(config.registryVersion).to.equal('0.1');
     expect(config.configFile).to.equal('./custom-config.json');
     expect(config.validateOnly).to.equal(true);
   });
@@ -34,6 +35,8 @@ describe('project-config', () => {
           source: './action-servers',
           output: './action-registry',
           deployment_environment: 'cloudflare',
+          config: './config/action-config.json',
+          external_repositories: '["./extra-servers"]',
         };
 
         return values[name] || '';
@@ -44,9 +47,27 @@ describe('project-config', () => {
 
     expect(config.source).to.equal('./action-servers');
     expect(config.output).to.equal('./action-registry');
+    expect(config.registryVersion).to.equal('0.1');
     expect(config.deploymentEnvironment).to.equal('cloudflare');
-    expect(config.configFile).to.equal('src/lib/mcp-registry.config.json');
+    expect(config.configFile).to.equal('./config/action-config.json');
+    expect(config.externalRepositories).to.deep.equal(['./extra-servers']);
     expect(config.validateOnly).to.equal(false);
+  });
+
+  it('fails for invalid external_repositories JSON', () => {
+    const actionCore = {
+      getInput(name) {
+        const values = {
+          external_repositories: '{invalid-json}',
+        };
+
+        return values[name] || '';
+      },
+    };
+
+    expect(() =>
+      getRuntimeConfig(actionCore, [], { GITHUB_ACTIONS: 'true' }),
+    ).to.throw('Invalid external repositories value');
   });
 
   it('fails for invalid deployment environment', () => {

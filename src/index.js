@@ -16,9 +16,11 @@ async function run() {
       sourceDir: runtimeConfig.source,
       outputDir: runtimeConfig.output,
       registryDirectoryName: runtimeConfig.registryDirectoryName,
+      registryVersion: runtimeConfig.registryVersion,
       deploymentEnvironment: runtimeConfig.deploymentEnvironment,
       validateOnly: runtimeConfig.validateOnly,
       configFile: runtimeConfig.configFile,
+      externalRepositories: runtimeConfig.externalRepositories,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

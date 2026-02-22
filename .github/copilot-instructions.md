@@ -26,7 +26,7 @@ You are working in **Blackout Secure MCP Registry Engine**, a static MCP registr
 
 - Server definitions: `servers/<name>/server.json` and `servers/<name>/versions/<semver>.json`
 - Schemas: `src/schemas/*.json`
-- Default config: `src/lib/mcp-registry.config.json`
+- Built-in defaults: `version=0.1`, `externalRepositories=[]`
 - Entrypoint: `src/index.js`
 - Output: `dist/registry`
 
@@ -36,7 +36,7 @@ The generator must:
 
 - Validate manifests using `src/schemas/server.schema.json` and `src/schemas/version.schema.json`
 - Read local servers from `servers/`
-- Optionally read external server roots from `src/lib/mcp-registry.config.json` (or `MCP_REGISTRY_CONFIG` override)
+- Optionally read external server roots from a custom config file when `MCP_REGISTRY_CONFIG` (or `--config`) is provided
 - Generate static versioned registry artifacts under `dist/registry/v0.1`
 - Generate `dist/registry/v0` as compatibility alias of `v0.1`
 - Generate hosting profile files:
@@ -50,6 +50,8 @@ The generator must:
   - `source` (default `./servers`)
   - `output` (default `./dist`)
   - `deployment_environment` (default `github`; supported: `github`, `cloudflare`)
+  - `config` (optional custom config file path)
+  - `external_repositories` (optional JSON array of additional servers roots)
 
 ## Static-only limitations
 
