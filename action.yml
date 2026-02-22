@@ -18,6 +18,10 @@ inputs:
     description: 'Path to the output registry directory'
     required: false
     default: './registry'
+  cloudflare_pages:
+    description: 'Generate Cloudflare Pages _headers and _redirects files'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -41,3 +45,4 @@ runs:
       env:
         SERVERS_DIR: ${{ inputs.source }}
         REGISTRY_DIR: ${{ inputs.output }}
+        CLOUDFLARE_PAGES: ${{ inputs.cloudflare_pages }}

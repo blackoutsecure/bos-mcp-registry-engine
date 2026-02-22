@@ -8,8 +8,11 @@ You are working in a repository for the **Blackout Secure MCP Registry Engine**,
 - Do NOT add Docker, Express, or any backend.
 - This repository is only for:
   - Generating static MCP registry JSON
+  - Generating static index pages for root and version paths
   - Validating MCP server definitions against schemas
   - Optionally ingesting additional server definitions from configured local paths
+  - Optionally generating Cloudflare Pages `_headers` when explicitly enabled
+   - Optionally generating Cloudflare Pages `_redirects` when explicitly enabled
   - Producing registry output under `/registry/v0.1`
   - Exposing a reusable GitHub Action that runs the generator
 
@@ -26,9 +29,14 @@ You are working in a repository for the **Blackout Secure MCP Registry Engine**,
   - Optionally read additional server roots listed in mcp-registry.config.json
    - Validate JSON against MCP schemas
    - Generate:
+       /registry/index.html
+       /registry/v0.1/index.html
        /registry/v0.1/servers.json
        /registry/v0.1/servers/<name>/versions/<version>.json
        /registry/v0.1/servers/<name>/versions/latest.json
+    - Optionally generate:
+       /registry/_headers (only when Cloudflare mode is enabled)
+       /registry/_redirects (only when Cloudflare mode is enabled)
 
 3. The output must be 100% static and host‑agnostic.
 
@@ -39,6 +47,7 @@ The Action in `action.yml` must:
 - Accepts inputs:
     - source (default: ./servers)
     - output (default: ./registry)
+  - cloudflare_pages (default: false)
 - Does NOT define workflows; only the Action itself.
 
 ## Guardrails

@@ -21,6 +21,7 @@ const REGISTRY_VERSION = '0.1';
 const SOURCE_SERVERS_DIR = resolveWorkspacePath(process.env.SERVERS_DIR, 'servers');
 const OUTPUT_ROOT_DIR = resolveWorkspacePath(process.env.REGISTRY_DIR, 'registry');
 const REGISTRY_OUTPUT_DIR = path.join(OUTPUT_ROOT_DIR, `v${REGISTRY_VERSION}`);
+const ENABLE_CLOUDFLARE_PAGES_MODE = parseEnvBoolean(process.env.CLOUDFLARE_PAGES, false);
 const SCHEMAS_DIR = path.join(WORKSPACE_ROOT, 'schemas');
 const CONFIG_FILE = path.join(WORKSPACE_ROOT, 'mcp-registry.config.json');
 
@@ -32,6 +33,19 @@ function resolveWorkspacePath(value, fallback) {
     return path.resolve(WORKSPACE_ROOT, fallback);
   }
   return path.resolve(WORKSPACE_ROOT, String(value));
+}
+
+function parseEnvBoolean(value, fallback = false) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return fallback;
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(normalized);
 }
 
 function formatValidationPath(instancePath) {
@@ -312,12 +326,61 @@ function buildVersionIndexHtml() {
 `;
 }
 
+function buildCloudflareHeaders() {
+  return `/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+/index.html
+  Cache-Control: no-store
+
+/v${REGISTRY_VERSION}/index.html
+  Cache-Control: no-store
+
+/v${REGISTRY_VERSION}/servers.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: public, max-age=300
+
+/v${REGISTRY_VERSION}/servers/*/versions/latest.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: public, max-age=300
+
+/v${REGISTRY_VERSION}/servers/*/versions/*.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+`;
+}
+
+function buildCloudflareRedirects() {
+  return `/ /v${REGISTRY_VERSION}/ 302
+/v${REGISTRY_VERSION} /v${REGISTRY_VERSION}/ 302
+/servers.json /v${REGISTRY_VERSION}/servers.json 302
+`;
+}
+
 async function generateRegistry(servers) {
   await fs.ensureDir(OUTPUT_ROOT_DIR);
   await fs.ensureDir(REGISTRY_OUTPUT_DIR);
 
   await fs.writeFile(path.join(OUTPUT_ROOT_DIR, 'index.html'), buildRootIndexHtml(), 'utf8');
   await fs.writeFile(path.join(REGISTRY_OUTPUT_DIR, 'index.html'), buildVersionIndexHtml(), 'utf8');
+  if (ENABLE_CLOUDFLARE_PAGES_MODE) {
+    await fs.writeFile(path.join(OUTPUT_ROOT_DIR, '_headers'), buildCloudflareHeaders(), 'utf8');
+    await fs.writeFile(path.join(OUTPUT_ROOT_DIR, '_redirects'), buildCloudflareRedirects(), 'utf8');
+  } else {
+    await Promise.all([
+      fs.remove(path.join(OUTPUT_ROOT_DIR, '_headers')),
+      fs.remove(path.join(OUTPUT_ROOT_DIR, '_redirects')),
+    ]);
+  }
 
   const serversIndex = buildServersIndex(servers);
   await fs.writeJson(
@@ -366,6 +429,9 @@ async function main() {
   console.log(`📁 Source servers path: ${SOURCE_SERVERS_DIR}`);
   console.log(`📦 Registry output root: ${OUTPUT_ROOT_DIR}`);
   console.log(`🧾 Registry version path: ${REGISTRY_OUTPUT_DIR}\n`);
+  if (ENABLE_CLOUDFLARE_PAGES_MODE) {
+    console.log('☁️ Cloudflare Pages mode: enabled (_headers and _redirects will be generated)\n');
+  }
 
   const servers = await readServers(validators, config);
   if (servers.length === 0) {

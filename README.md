@@ -56,6 +56,7 @@ jobs:
         with:
           source: './servers'
           output: './registry'
+          cloudflare_pages: 'false'
 ```
 
 ## ⚙️ Action Inputs
@@ -64,6 +65,7 @@ jobs:
 | -------- | ------------------------------------ | ------------ |
 | `source` | Path to server definitions directory | `./servers`  |
 | `output` | Path to output registry root         | `./registry` |
+| `cloudflare_pages` | Generate Cloudflare Pages `_headers` and `_redirects` files | `false` |
 
 The action writes generated files to `<output>/v0.1`.
 
@@ -81,7 +83,11 @@ schemas/
 scripts/
   generate-registry.js
 registry/
+  index.html
+  _headers (optional; when Cloudflare mode enabled)
+  _redirects (optional; when Cloudflare mode enabled)
   v0.1/
+    index.html
     servers.json
     servers/<name>/versions/<version>.json
     servers/<name>/versions/latest.json
@@ -103,15 +109,76 @@ Sample files:
 
 Generated files:
 
+- `registry/index.html`
+- `registry/v0.1/index.html`
 - `registry/v0.1/servers.json`
 - `registry/v0.1/servers/<name>/versions/<version>.json`
 - `registry/v0.1/servers/<name>/versions/latest.json`
+
+Optional (Cloudflare Pages mode):
+
+- `registry/_headers`
+- `registry/_redirects`
 
 `servers.json` includes:
 
 - Registry version
 - Generation timestamp
 - Normalized server index with latest version and full version list
+
+## ☁️ Cloudflare Pages Notes
+
+- Keep your Pages publish directory set to `registry`
+- `index.html` is still needed for default `/` routing on static hosts
+- Enable `cloudflare_pages: 'true'` to generate recommended `_headers` and `_redirects`
+- `_headers` includes baseline security headers, CORS for registry JSON, and cache policies for index/latest/versioned JSON
+- `_redirects` adds root and convenience redirects (`/`, `/v0.1`, `/servers.json`) to canonical versioned paths
+
+### Example: GitHub Actions + Cloudflare Pages
+
+```yaml
+name: Build and Deploy Registry
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate static registry for Cloudflare Pages
+        uses: blackoutsecure/bos-mcp-registry-engine@v1
+        with:
+          source: './servers'
+          output: './registry'
+          cloudflare_pages: 'true'
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: your-pages-project
+          directory: registry
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+```
+
+What this does:
+
+- The registry action builds static output into `registry/`
+- `cloudflare_pages: 'true'` adds `registry/_headers` and `registry/_redirects`
+- `directory: registry` tells Cloudflare Pages to publish that folder as site root
+- `/` resolves via `index.html` and redirect rules to the versioned registry path (`/v0.1/`)
+
+### Troubleshooting (Cloudflare Pages)
+
+- Root page is blank or 404: confirm Pages publish directory is exactly `registry`
+- `/_headers` or `/_redirects` behavior missing: confirm `cloudflare_pages: 'true'` in the generation step
+- Old routes or headers still served: trigger a new deploy and clear Cloudflare cache
+- JSON requests blocked by browser CORS: verify deployment includes generated `registry/_headers`
 
 ## 🌐 External Repositories (Optional)
 
