@@ -34,6 +34,7 @@ describe('project-config', () => {
         const values = {
           source: './action-servers',
           output: './action-registry',
+          public_directory: 'site',
           deployment_environment: 'cloudflare',
           config: './config/action-config.json',
           external_repositories: '["./extra-servers"]',
@@ -47,6 +48,7 @@ describe('project-config', () => {
 
     expect(config.source).to.equal('./action-servers');
     expect(config.output).to.equal('./action-registry');
+    expect(config.publicDirectoryName).to.equal('site');
     expect(config.registryVersion).to.equal('0.1');
     expect(config.deploymentEnvironment).to.equal('cloudflare');
     expect(config.configFile).to.equal('./config/action-config.json');
@@ -85,5 +87,25 @@ describe('project-config', () => {
     });
 
     expect(config.configFile).to.equal('./config/registry.settings.json');
+  });
+
+  it('supports none deployment environment', () => {
+    const config = getRuntimeConfig(
+      core,
+      ['--deployment-environment', 'none'],
+      {
+        GITHUB_ACTIONS: 'false',
+      },
+    );
+
+    expect(config.deploymentEnvironment).to.equal('none');
+  });
+
+  it('supports public directory override from cli', () => {
+    const config = getRuntimeConfig(core, ['--public-directory', 'site'], {
+      GITHUB_ACTIONS: 'false',
+    });
+
+    expect(config.publicDirectoryName).to.equal('site');
   });
 });

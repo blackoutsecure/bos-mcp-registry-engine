@@ -178,6 +178,35 @@ describe('registry-generator', () => {
     );
   });
 
+  it('generates host-agnostic output for none profile', async () => {
+    const outputRoot = resolveOutputPath(workspaceRoot);
+    await fs.ensureDir(outputRoot);
+    await fs.writeFile(path.join(outputRoot, '_headers'), 'legacy', 'utf8');
+    await fs.writeFile(path.join(outputRoot, '_redirects'), 'legacy', 'utf8');
+    await fs.writeFile(path.join(outputRoot, '.nojekyll'), 'legacy', 'utf8');
+
+    await runRegistryGeneration({
+      workspaceRoot,
+      sourceDir: './servers',
+      outputDir: './dist',
+      deploymentEnvironment: 'none',
+      schemasDir: path.join(workspaceRoot, 'schemas'),
+    });
+
+    expect(await fs.pathExists(path.join(outputRoot, '_headers'))).to.equal(
+      false,
+    );
+    expect(await fs.pathExists(path.join(outputRoot, '_redirects'))).to.equal(
+      false,
+    );
+    expect(await fs.pathExists(path.join(outputRoot, '.nojekyll'))).to.equal(
+      false,
+    );
+    expect(await fs.pathExists(path.join(outputRoot, 'index.html'))).to.equal(
+      true,
+    );
+  });
+
   it('supports custom config path from MCP_REGISTRY_CONFIG', async () => {
     const extraServersDir = path.join(workspaceRoot, 'extra-servers');
     await fs.copy(path.join(workspaceRoot, 'servers'), extraServersDir);

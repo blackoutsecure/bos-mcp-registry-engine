@@ -14,6 +14,7 @@ const {
   assertValidDeploymentEnvironment,
 } = require('./project-config');
 const { formatValidationPath, resolveWorkspacePath } = require('./utils');
+const { writeDeploymentProfileFiles } = require('./deployment-profiles');
 
 const REGISTRY_VERSION = PROJECT_CONFIG.runtime.defaults.registryVersion;
 
@@ -466,129 +467,6 @@ async function writeApiCompatJson(basePath, data) {
   ]);
 }
 
-function buildCloudflareHeaders(registryVersion) {
-  return `/*
-  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
-  Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  Referrer-Policy: no-referrer
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), usb=(), payment=(), accelerometer=(), gyroscope=(), magnetometer=()
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Resource-Policy: cross-origin
-  X-Permitted-Cross-Domain-Policies: none
-  Origin-Agent-Cluster: ?1
-
-/index.html
-  Cache-Control: no-store
-
-/v${registryVersion}/index.html
-  Cache-Control: no-store
-
-/v${registryVersion}/servers.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: public, max-age=300
-
-/v${registryVersion}/servers
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: public, max-age=300
-
-/v${registryVersion}/servers/index.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v0/servers
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v0/servers/index.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/health
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/health.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/ping
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/ping.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/version
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/version.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/servers/*/versions/latest.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/servers/*/versions/latest
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/servers/*/versions/*.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: public, max-age=31536000, immutable
-
-/v${registryVersion}/servers/*/versions/*
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: public, max-age=31536000, immutable
-`;
-}
-
-function buildCloudflareRedirects(registryVersion) {
-  return `/ /v${registryVersion}/ 302
-/v${registryVersion} /v${registryVersion}/ 302
-/servers.json /v${registryVersion}/servers.json 302
-/servers /v${registryVersion}/servers/index.json 302
-/v0/servers /v${registryVersion}/servers/index.json 302
-/health /v${registryVersion}/health.json 302
-/ping /v${registryVersion}/ping.json 302
-/version /v${registryVersion}/version.json 302
-`;
-}
-
 async function generateRegistry({
   outputRootDir,
   registryOutputDir,
@@ -603,9 +481,6 @@ async function generateRegistry({
 
   const rootIndexPath = path.join(outputRootDir, 'index.html');
   const versionIndexPath = path.join(registryOutputDir, 'index.html');
-  const cloudflareHeadersPath = path.join(outputRootDir, '_headers');
-  const cloudflareRedirectsPath = path.join(outputRootDir, '_redirects');
-  const noJekyllPath = path.join(outputRootDir, '.nojekyll');
 
   await fs.writeFile(
     rootIndexPath,
@@ -617,29 +492,13 @@ async function generateRegistry({
     buildVersionIndexHtml(registryVersion),
     'utf8',
   );
-  if (deploymentEnvironment === 'cloudflare') {
-    await fs.writeFile(
-      cloudflareHeadersPath,
-      buildCloudflareHeaders(registryVersion),
-      'utf8',
-    );
-    await fs.writeFile(
-      cloudflareRedirectsPath,
-      buildCloudflareRedirects(registryVersion),
-      'utf8',
-    );
-    await fs.remove(noJekyllPath);
-  } else if (deploymentEnvironment === 'github') {
-    await fs.writeFile(noJekyllPath, '', 'utf8');
-    await Promise.all([
-      fs.remove(cloudflareHeadersPath),
-      fs.remove(cloudflareRedirectsPath),
-    ]);
-  } else {
-    throw new Error(
-      `Invalid deployment environment selected: ${deploymentEnvironment}`,
-    );
-  }
+  const { cloudflareHeadersPath, cloudflareRedirectsPath, noJekyllPath } =
+    await writeDeploymentProfileFiles({
+      fs,
+      outputRootDir,
+      registryVersion,
+      deploymentEnvironment,
+    });
 
   console.log(`✓ Wrote ${rootIndexPath}`);
   console.log(`✓ Wrote ${versionIndexPath}`);
@@ -649,6 +508,11 @@ async function generateRegistry({
   }
   if (deploymentEnvironment === 'github') {
     console.log(`✓ Wrote ${noJekyllPath}`);
+  }
+  if (deploymentEnvironment === 'none') {
+    console.log(
+      '✓ Skipped hosting profile files (_headers, _redirects, .nojekyll) for local/generic static hosting',
+    );
   }
 
   const latestServerResponses = servers.map((server) => {
@@ -758,9 +622,11 @@ async function runRegistryGeneration(options = {}) {
     options.outputDir || process.env[envKeys.output],
     defaults.output,
   );
-  const registryDirectoryName =
-    options.registryDirectoryName || defaults.registryDirectoryName;
-  const outputRootDir = path.join(outputBaseDir, registryDirectoryName);
+  const publicDirectoryName =
+    options.publicDirectoryName ||
+    process.env[envKeys.publicDirectory] ||
+    defaults.publicDirectoryName;
+  const outputRootDir = path.join(outputBaseDir, publicDirectoryName);
   const registryOutputDir = path.join(outputRootDir, `v${registryVersion}`);
   const deploymentEnvironment =
     options.deploymentEnvironment ||
@@ -787,7 +653,7 @@ async function runRegistryGeneration(options = {}) {
   const outputBaseName = path.basename(outputRootDir);
   if (outputBaseName === `v${registryVersion}`) {
     console.warn(
-      `⚠ Output path appears to be a version directory (${outputRootDir}). Use the registry root (for example ./registry) so root index and Cloudflare files are included in deployment.\n`,
+      `⚠ Output path appears to be a version directory (${outputRootDir}). Use an output base path (for example ./dist) so profile files and root index are generated correctly.\n`,
     );
   }
 
@@ -800,6 +666,12 @@ async function runRegistryGeneration(options = {}) {
   if (deploymentEnvironment === 'github') {
     console.log(
       '🐙 Deployment environment: github (.nojekyll will be generated for GitHub Pages)\n',
+    );
+  }
+
+  if (deploymentEnvironment === 'none') {
+    console.log(
+      '🧪 Deployment environment: none (host-agnostic static output; no platform profile files generated)\n',
     );
   }
 

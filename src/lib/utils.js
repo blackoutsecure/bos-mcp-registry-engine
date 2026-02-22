@@ -39,6 +39,7 @@ function parseCliArgs(argv = process.argv.slice(2)) {
   const result = {
     source: undefined,
     output: undefined,
+    publicDirectory: undefined,
     deploymentEnvironment: undefined,
     configFile: undefined,
     validateOnly: false,
@@ -61,6 +62,12 @@ function parseCliArgs(argv = process.argv.slice(2)) {
 
     if (arg === '--output' && nextArg) {
       result.output = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--public-directory' && nextArg) {
+      result.publicDirectory = nextArg;
       index += 1;
       continue;
     }

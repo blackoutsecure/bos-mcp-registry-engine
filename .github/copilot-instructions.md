@@ -28,7 +28,7 @@ You are working in **Blackout Secure MCP Registry Engine**, a static MCP registr
 - Schemas: `src/schemas/*.json`
 - Built-in defaults: `version=0.1`, `externalRepositories=[]`
 - Entrypoint: `src/index.js`
-- Output: `dist/registry`
+- Output: `<output>/public` (default `dist/public`)
 
 ## Generator/output requirements
 
@@ -37,11 +37,12 @@ The generator must:
 - Validate manifests using `src/schemas/server.schema.json` and `src/schemas/version.schema.json`
 - Read local servers from `servers/`
 - Optionally read external server roots from a custom config file when `MCP_REGISTRY_CONFIG` (or `--config`) is provided
-- Generate static versioned registry artifacts under `dist/registry/v0.1`
-- Generate `dist/registry/v0` as compatibility alias of `v0.1`
+- Generate static versioned registry artifacts under `<output>/public/v0.1`
+- Generate `<output>/public/v0` as compatibility alias of `v0.1`
 - Generate hosting profile files:
   - `deployment_environment=github` → `.nojekyll`
   - `deployment_environment=cloudflare` → `_headers` and `_redirects`
+  - `deployment_environment=none` → no hosting profile files (host-agnostic static output)
 
 ## Action contract (`action.yml`)
 
@@ -49,7 +50,8 @@ The generator must:
 - Inputs:
   - `source` (default `./servers`)
   - `output` (default `./dist`)
-  - `deployment_environment` (default `github`; supported: `github`, `cloudflare`)
+  - `public_directory` (default `public`)
+  - `deployment_environment` (default `github`; supported: `github`, `cloudflare`, `none`)
   - `config` (optional custom config file path)
   - `external_repositories` (optional JSON array of additional servers roots)
 

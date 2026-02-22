@@ -15,7 +15,7 @@ async function run() {
     await runRegistryGeneration({
       sourceDir: runtimeConfig.source,
       outputDir: runtimeConfig.output,
-      registryDirectoryName: runtimeConfig.registryDirectoryName,
+      publicDirectoryName: runtimeConfig.publicDirectoryName,
       registryVersion: runtimeConfig.registryVersion,
       deploymentEnvironment: runtimeConfig.deploymentEnvironment,
       validateOnly: runtimeConfig.validateOnly,

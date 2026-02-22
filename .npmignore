@@ -4,6 +4,7 @@
 node_modules/
 registry/
 dist/registry/
+dist/public/
 build/
 
 # Local/editor files

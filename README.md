@@ -9,11 +9,13 @@ Static MCP registry generator and GitHub Marketplace Action for producing host-a
 ## What it does
 
 - Validates `servers/<name>/server.json` and `servers/<name>/versions/<semver>.json`
-- Generates static registry output under `dist/registry`
+- Generates static registry output under `<output>/public`
+- Keeps generated public artifacts in the `public` folder under the configured output path
 - Produces versioned API-compatible artifacts for `v0.1` and `v0` alias
 - Supports deployment profiles:
   - `github` (generates `.nojekyll`)
   - `cloudflare` (generates `_headers` and `_redirects`)
+  - `none` (no host-specific profile files; suitable for local/static hosting like Apache/Nginx)
 
 ## Action usage (Marketplace)
 
@@ -37,6 +39,8 @@ jobs:
         with:
           source: './servers'
           output: './dist'
+          # Optional (default): public
+          public_directory: 'public'
           # Optional (default): github
           deployment_environment: 'github'
           # Optional
@@ -47,13 +51,14 @@ jobs:
 
 ### Inputs
 
-| Input                    | Description                                               | Default     |
-| ------------------------ | --------------------------------------------------------- | ----------- |
-| `source`                 | Path to servers directory                                 | `./servers` |
-| `output`                 | Base output path (registry writes to `<output>/registry`) | `./dist`    |
-| `deployment_environment` | Optional: `github` or `cloudflare`                        | `github`    |
-| `config`                 | Optional path to custom config file                       | _(none)_    |
-| `external_repositories`  | Optional JSON array of extra servers roots                | _(none)_    |
+| Input                    | Description                                                           | Default     |
+| ------------------------ | --------------------------------------------------------------------- | ----------- |
+| `source`                 | Path to servers directory                                             | `./servers` |
+| `output`                 | Base output path                                                      | `./dist`    |
+| `public_directory`       | Public output folder name written under `<output>/<public_directory>` | `public`    |
+| `deployment_environment` | Optional: `github`, `cloudflare`, or `none`                           | `github`    |
+| `config`                 | Optional path to custom config file                                   | _(none)_    |
+| `external_repositories`  | Optional JSON array of extra servers roots                            | _(none)_    |
 
 ## Local usage
 
@@ -244,20 +249,29 @@ jobs:
 
 ## Output
 
-Core generated files:
+Core generated files (defaults shown):
 
-- `dist/registry/index.html`
-- `dist/registry/v0.1/index.html`
-- `dist/registry/v0.1/servers.json`
-- `dist/registry/v0.1/servers/index.json`
-- `dist/registry/v0.1/servers/<url-encoded-serverName>/versions/<version>.json`
-- `dist/registry/v0.1/servers/<url-encoded-serverName>/versions/latest.json`
-- `dist/registry/v0/` (compatibility alias of `v0.1`)
+- `dist/public/index.html`
+- `dist/public/v0.1/index.html`
+- `dist/public/v0.1/servers.json`
+- `dist/public/v0.1/servers/index.json`
+- `dist/public/v0.1/servers/<url-encoded-serverName>/versions/<version>.json`
+- `dist/public/v0.1/servers/<url-encoded-serverName>/versions/latest.json`
+- `dist/public/v0/` (compatibility alias of `v0.1`)
 
 Deployment-specific:
 
-- `github`: `dist/registry/.nojekyll`
-- `cloudflare`: `dist/registry/_headers`, `dist/registry/_redirects`
+- `github`: `dist/public/.nojekyll`
+- `cloudflare`: `dist/public/_headers`, `dist/public/_redirects`
+- `none`: no platform-specific profile files are generated (output remains portable static files with root/version `index.html` redirects)
+
+### Hosting matrix
+
+| `deployment_environment` | Recommended host                                  | Generated profile files  | Notes                                                                                                             |
+| ------------------------ | ------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `github`                 | GitHub Pages                                      | `.nojekyll`              | Keeps Pages from running Jekyll processing.                                                                       |
+| `cloudflare`             | Cloudflare Pages / Workers static files           | `_headers`, `_redirects` | Applies security/cache headers and redirect aliases.                                                              |
+| `none`                   | Local preview, Apache, Nginx, generic static host | _(none)_                 | Host-agnostic static output only; root and version `index.html` files still provide navigation/redirect behavior. |
 
 ## Repository scope
 
@@ -273,7 +287,7 @@ This repository is for static registry generation and Marketplace Action packagi
 npm run check
 ```
 
-This runs build (with clean `dist`), lint, format check, validation, tests, and production audit gate.
+This runs build (with clean `dist` for action packaging), lint, format check, validation, tests, and production audit gate.
 
 ## License
 

@@ -19,7 +19,7 @@ async function cleanupWorkspace(workspaceRoot) {
 }
 
 function resolveOutputPath(workspaceRoot) {
-  return path.join(workspaceRoot, 'dist', 'registry');
+  return path.join(workspaceRoot, 'dist', 'public');
 }
 
 module.exports = {

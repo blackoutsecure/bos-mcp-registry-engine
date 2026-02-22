@@ -37305,6 +37305,198 @@ exports.fromPromise = function (fn) {
 
 /***/ }),
 
+/***/ 5089:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const path = __nccwpck_require__(6928);
+
+function buildCloudflareHeaders(registryVersion) {
+  return `/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), usb=(), payment=(), accelerometer=(), gyroscope=(), magnetometer=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: cross-origin
+  X-Permitted-Cross-Domain-Policies: none
+  Origin-Agent-Cluster: ?1
+
+/index.html
+  Cache-Control: no-store
+
+/v${registryVersion}/index.html
+  Cache-Control: no-store
+
+/v${registryVersion}/servers.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: public, max-age=300
+
+/v${registryVersion}/servers
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: public, max-age=300
+
+/v${registryVersion}/servers/index.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v0/servers
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v0/servers/index.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v${registryVersion}/health
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v${registryVersion}/health.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v${registryVersion}/ping
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v${registryVersion}/ping.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v${registryVersion}/version
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v${registryVersion}/version.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v${registryVersion}/servers/*/versions/latest.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v${registryVersion}/servers/*/versions/latest
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: no-store
+
+/v${registryVersion}/servers/*/versions/*.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+
+/v${registryVersion}/servers/*/versions/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+`;
+}
+
+function buildCloudflareRedirects(registryVersion) {
+  return `/ /v${registryVersion}/ 302
+/v${registryVersion} /v${registryVersion}/ 302
+/servers.json /v${registryVersion}/servers.json 302
+/servers /v${registryVersion}/servers/index.json 302
+/v0/servers /v${registryVersion}/servers/index.json 302
+/health /v${registryVersion}/health.json 302
+/ping /v${registryVersion}/ping.json 302
+/version /v${registryVersion}/version.json 302
+`;
+}
+
+async function writeDeploymentProfileFiles({
+  fs,
+  outputRootDir,
+  registryVersion,
+  deploymentEnvironment,
+}) {
+  const cloudflareHeadersPath = path.join(outputRootDir, '_headers');
+  const cloudflareRedirectsPath = path.join(outputRootDir, '_redirects');
+  const noJekyllPath = path.join(outputRootDir, '.nojekyll');
+
+  if (deploymentEnvironment === 'cloudflare') {
+    await fs.writeFile(
+      cloudflareHeadersPath,
+      buildCloudflareHeaders(registryVersion),
+      'utf8',
+    );
+    await fs.writeFile(
+      cloudflareRedirectsPath,
+      buildCloudflareRedirects(registryVersion),
+      'utf8',
+    );
+    await fs.remove(noJekyllPath);
+
+    return {
+      cloudflareHeadersPath,
+      cloudflareRedirectsPath,
+      noJekyllPath,
+    };
+  }
+
+  if (deploymentEnvironment === 'github') {
+    await fs.writeFile(noJekyllPath, '', 'utf8');
+    await Promise.all([
+      fs.remove(cloudflareHeadersPath),
+      fs.remove(cloudflareRedirectsPath),
+    ]);
+
+    return {
+      cloudflareHeadersPath,
+      cloudflareRedirectsPath,
+      noJekyllPath,
+    };
+  }
+
+  await Promise.all([
+    fs.remove(noJekyllPath),
+    fs.remove(cloudflareHeadersPath),
+    fs.remove(cloudflareRedirectsPath),
+  ]);
+
+  return {
+    cloudflareHeadersPath,
+    cloudflareRedirectsPath,
+    noJekyllPath,
+  };
+}
+
+module.exports = {
+  writeDeploymentProfileFiles,
+};
+
+
+/***/ }),
+
 /***/ 6067:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -37322,7 +37514,7 @@ exports.fromPromise = function (fn) {
 
 const { parseBoolean, parseCliArgs } = __nccwpck_require__(4068);
 
-const SUPPORTED_DEPLOYMENT_ENVIRONMENTS = ['github', 'cloudflare'];
+const SUPPORTED_DEPLOYMENT_ENVIRONMENTS = ['github', 'cloudflare', 'none'];
 
 const PROJECT_CONFIG = {
   metadata: {
@@ -37336,7 +37528,7 @@ const PROJECT_CONFIG = {
     defaults: {
       source: 'servers',
       output: 'dist',
-      registryDirectoryName: 'registry',
+      publicDirectoryName: 'public',
       registryVersion: '0.1',
       externalRepositories: [],
       deploymentEnvironment: 'github',
@@ -37344,6 +37536,7 @@ const PROJECT_CONFIG = {
     env: {
       source: 'SERVERS_DIR',
       output: 'REGISTRY_DIR',
+      publicDirectory: 'MCP_REGISTRY_PUBLIC_DIR',
       deploymentEnvironment: 'DEPLOYMENT_ENVIRONMENT',
       validateOnly: 'MCP_REGISTRY_VALIDATE_ONLY',
       configFile: 'MCP_REGISTRY_CONFIG',
@@ -37352,6 +37545,7 @@ const PROJECT_CONFIG = {
     inputs: {
       source: 'source',
       output: 'output',
+      publicDirectory: 'public_directory',
       deploymentEnvironment: 'deployment_environment',
       configFile: 'config',
       externalRepositories: 'external_repositories',
@@ -37409,6 +37603,7 @@ function getRuntimeConfig(
 
   const sourceEnv = env[envKeys.source];
   const outputEnv = env[envKeys.output];
+  const publicDirectoryEnv = env[envKeys.publicDirectory];
   const deploymentEnvironmentEnv = env[envKeys.deploymentEnvironment];
   const validateOnlyEnv = env[envKeys.validateOnly];
   const configFileEnv = env[envKeys.configFile];
@@ -37421,6 +37616,14 @@ function getRuntimeConfig(
   const output = isGitHubActionRuntime
     ? core.getInput(inputs.output) || outputEnv || defaults.output
     : cliArgs.output || outputEnv || defaults.output;
+
+  const publicDirectoryName = isGitHubActionRuntime
+    ? core.getInput(inputs.publicDirectory) ||
+      publicDirectoryEnv ||
+      defaults.publicDirectoryName
+    : cliArgs.publicDirectory ||
+      publicDirectoryEnv ||
+      defaults.publicDirectoryName;
 
   const deploymentEnvironment = isGitHubActionRuntime
     ? normalizeDeploymentEnvironment(
@@ -37453,7 +37656,7 @@ function getRuntimeConfig(
   return {
     source,
     output,
-    registryDirectoryName: defaults.registryDirectoryName,
+    publicDirectoryName,
     registryVersion: defaults.registryVersion,
     deploymentEnvironment,
     validateOnly,
@@ -37491,6 +37694,7 @@ const {
   assertValidDeploymentEnvironment,
 } = __nccwpck_require__(6067);
 const { formatValidationPath, resolveWorkspacePath } = __nccwpck_require__(4068);
+const { writeDeploymentProfileFiles } = __nccwpck_require__(5089);
 
 const REGISTRY_VERSION = PROJECT_CONFIG.runtime.defaults.registryVersion;
 
@@ -37943,129 +38147,6 @@ async function writeApiCompatJson(basePath, data) {
   ]);
 }
 
-function buildCloudflareHeaders(registryVersion) {
-  return `/*
-  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
-  Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  Referrer-Policy: no-referrer
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), usb=(), payment=(), accelerometer=(), gyroscope=(), magnetometer=()
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Resource-Policy: cross-origin
-  X-Permitted-Cross-Domain-Policies: none
-  Origin-Agent-Cluster: ?1
-
-/index.html
-  Cache-Control: no-store
-
-/v${registryVersion}/index.html
-  Cache-Control: no-store
-
-/v${registryVersion}/servers.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: public, max-age=300
-
-/v${registryVersion}/servers
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: public, max-age=300
-
-/v${registryVersion}/servers/index.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v0/servers
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v0/servers/index.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/health
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/health.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/ping
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/ping.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/version
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/version.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/servers/*/versions/latest.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/servers/*/versions/latest
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v${registryVersion}/servers/*/versions/*.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: public, max-age=31536000, immutable
-
-/v${registryVersion}/servers/*/versions/*
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: public, max-age=31536000, immutable
-`;
-}
-
-function buildCloudflareRedirects(registryVersion) {
-  return `/ /v${registryVersion}/ 302
-/v${registryVersion} /v${registryVersion}/ 302
-/servers.json /v${registryVersion}/servers.json 302
-/servers /v${registryVersion}/servers/index.json 302
-/v0/servers /v${registryVersion}/servers/index.json 302
-/health /v${registryVersion}/health.json 302
-/ping /v${registryVersion}/ping.json 302
-/version /v${registryVersion}/version.json 302
-`;
-}
-
 async function generateRegistry({
   outputRootDir,
   registryOutputDir,
@@ -38080,9 +38161,6 @@ async function generateRegistry({
 
   const rootIndexPath = path.join(outputRootDir, 'index.html');
   const versionIndexPath = path.join(registryOutputDir, 'index.html');
-  const cloudflareHeadersPath = path.join(outputRootDir, '_headers');
-  const cloudflareRedirectsPath = path.join(outputRootDir, '_redirects');
-  const noJekyllPath = path.join(outputRootDir, '.nojekyll');
 
   await fs.writeFile(
     rootIndexPath,
@@ -38094,29 +38172,13 @@ async function generateRegistry({
     buildVersionIndexHtml(registryVersion),
     'utf8',
   );
-  if (deploymentEnvironment === 'cloudflare') {
-    await fs.writeFile(
-      cloudflareHeadersPath,
-      buildCloudflareHeaders(registryVersion),
-      'utf8',
-    );
-    await fs.writeFile(
-      cloudflareRedirectsPath,
-      buildCloudflareRedirects(registryVersion),
-      'utf8',
-    );
-    await fs.remove(noJekyllPath);
-  } else if (deploymentEnvironment === 'github') {
-    await fs.writeFile(noJekyllPath, '', 'utf8');
-    await Promise.all([
-      fs.remove(cloudflareHeadersPath),
-      fs.remove(cloudflareRedirectsPath),
-    ]);
-  } else {
-    throw new Error(
-      `Invalid deployment environment selected: ${deploymentEnvironment}`,
-    );
-  }
+  const { cloudflareHeadersPath, cloudflareRedirectsPath, noJekyllPath } =
+    await writeDeploymentProfileFiles({
+      fs,
+      outputRootDir,
+      registryVersion,
+      deploymentEnvironment,
+    });
 
   console.log(`✓ Wrote ${rootIndexPath}`);
   console.log(`✓ Wrote ${versionIndexPath}`);
@@ -38126,6 +38188,11 @@ async function generateRegistry({
   }
   if (deploymentEnvironment === 'github') {
     console.log(`✓ Wrote ${noJekyllPath}`);
+  }
+  if (deploymentEnvironment === 'none') {
+    console.log(
+      '✓ Skipped hosting profile files (_headers, _redirects, .nojekyll) for local/generic static hosting',
+    );
   }
 
   const latestServerResponses = servers.map((server) => {
@@ -38235,9 +38302,11 @@ async function runRegistryGeneration(options = {}) {
     options.outputDir || process.env[envKeys.output],
     defaults.output,
   );
-  const registryDirectoryName =
-    options.registryDirectoryName || defaults.registryDirectoryName;
-  const outputRootDir = path.join(outputBaseDir, registryDirectoryName);
+  const publicDirectoryName =
+    options.publicDirectoryName ||
+    process.env[envKeys.publicDirectory] ||
+    defaults.publicDirectoryName;
+  const outputRootDir = path.join(outputBaseDir, publicDirectoryName);
   const registryOutputDir = path.join(outputRootDir, `v${registryVersion}`);
   const deploymentEnvironment =
     options.deploymentEnvironment ||
@@ -38264,7 +38333,7 @@ async function runRegistryGeneration(options = {}) {
   const outputBaseName = path.basename(outputRootDir);
   if (outputBaseName === `v${registryVersion}`) {
     console.warn(
-      `⚠ Output path appears to be a version directory (${outputRootDir}). Use the registry root (for example ./registry) so root index and Cloudflare files are included in deployment.\n`,
+      `⚠ Output path appears to be a version directory (${outputRootDir}). Use an output base path (for example ./dist) so profile files and root index are generated correctly.\n`,
     );
   }
 
@@ -38277,6 +38346,12 @@ async function runRegistryGeneration(options = {}) {
   if (deploymentEnvironment === 'github') {
     console.log(
       '🐙 Deployment environment: github (.nojekyll will be generated for GitHub Pages)\n',
+    );
+  }
+
+  if (deploymentEnvironment === 'none') {
+    console.log(
+      '🧪 Deployment environment: none (host-agnostic static output; no platform profile files generated)\n',
     );
   }
 
@@ -38375,6 +38450,7 @@ function parseCliArgs(argv = process.argv.slice(2)) {
   const result = {
     source: undefined,
     output: undefined,
+    publicDirectory: undefined,
     deploymentEnvironment: undefined,
     configFile: undefined,
     validateOnly: false,
@@ -38397,6 +38473,12 @@ function parseCliArgs(argv = process.argv.slice(2)) {
 
     if (arg === '--output' && nextArg) {
       result.output = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--public-directory' && nextArg) {
+      result.publicDirectory = nextArg;
       index += 1;
       continue;
     }
@@ -41347,7 +41429,7 @@ async function run() {
     await runRegistryGeneration({
       sourceDir: runtimeConfig.source,
       outputDir: runtimeConfig.output,
-      registryDirectoryName: runtimeConfig.registryDirectoryName,
+      publicDirectoryName: runtimeConfig.publicDirectoryName,
       registryVersion: runtimeConfig.registryVersion,
       deploymentEnvironment: runtimeConfig.deploymentEnvironment,
       validateOnly: runtimeConfig.validateOnly,

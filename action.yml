@@ -19,11 +19,15 @@ inputs:
     required: false
     default: './servers'
   output:
-    description: 'Path to the output base directory (registry will be generated under <output>/registry)'
+    description: 'Path to the output base directory'
     required: false
     default: './dist'
+  public_directory:
+    description: 'Name of the public output directory generated under <output>/<public_directory>'
+    required: false
+    default: 'public'
   deployment_environment:
-    description: 'Deployment environment profile (github for GitHub Pages, cloudflare for Cloudflare Pages/Workers)'
+    description: 'Deployment environment profile (github for GitHub Pages, cloudflare for Cloudflare Pages/Workers, none for host-agnostic static output)'
     required: false
     default: 'github'
   config:

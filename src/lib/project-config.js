@@ -12,7 +12,7 @@
 
 const { parseBoolean, parseCliArgs } = require('./utils');
 
-const SUPPORTED_DEPLOYMENT_ENVIRONMENTS = ['github', 'cloudflare'];
+const SUPPORTED_DEPLOYMENT_ENVIRONMENTS = ['github', 'cloudflare', 'none'];
 
 const PROJECT_CONFIG = {
   metadata: {
@@ -26,7 +26,7 @@ const PROJECT_CONFIG = {
     defaults: {
       source: 'servers',
       output: 'dist',
-      registryDirectoryName: 'registry',
+      publicDirectoryName: 'public',
       registryVersion: '0.1',
       externalRepositories: [],
       deploymentEnvironment: 'github',
@@ -34,6 +34,7 @@ const PROJECT_CONFIG = {
     env: {
       source: 'SERVERS_DIR',
       output: 'REGISTRY_DIR',
+      publicDirectory: 'MCP_REGISTRY_PUBLIC_DIR',
       deploymentEnvironment: 'DEPLOYMENT_ENVIRONMENT',
       validateOnly: 'MCP_REGISTRY_VALIDATE_ONLY',
       configFile: 'MCP_REGISTRY_CONFIG',
@@ -42,6 +43,7 @@ const PROJECT_CONFIG = {
     inputs: {
       source: 'source',
       output: 'output',
+      publicDirectory: 'public_directory',
       deploymentEnvironment: 'deployment_environment',
       configFile: 'config',
       externalRepositories: 'external_repositories',
@@ -99,6 +101,7 @@ function getRuntimeConfig(
 
   const sourceEnv = env[envKeys.source];
   const outputEnv = env[envKeys.output];
+  const publicDirectoryEnv = env[envKeys.publicDirectory];
   const deploymentEnvironmentEnv = env[envKeys.deploymentEnvironment];
   const validateOnlyEnv = env[envKeys.validateOnly];
   const configFileEnv = env[envKeys.configFile];
@@ -111,6 +114,14 @@ function getRuntimeConfig(
   const output = isGitHubActionRuntime
     ? core.getInput(inputs.output) || outputEnv || defaults.output
     : cliArgs.output || outputEnv || defaults.output;
+
+  const publicDirectoryName = isGitHubActionRuntime
+    ? core.getInput(inputs.publicDirectory) ||
+      publicDirectoryEnv ||
+      defaults.publicDirectoryName
+    : cliArgs.publicDirectory ||
+      publicDirectoryEnv ||
+      defaults.publicDirectoryName;
 
   const deploymentEnvironment = isGitHubActionRuntime
     ? normalizeDeploymentEnvironment(
@@ -143,7 +154,7 @@ function getRuntimeConfig(
   return {
     source,
     output,
-    registryDirectoryName: defaults.registryDirectoryName,
+    publicDirectoryName,
     registryVersion: defaults.registryVersion,
     deploymentEnvironment,
     validateOnly,
