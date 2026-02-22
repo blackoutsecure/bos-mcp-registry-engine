@@ -297,3 +297,4 @@ Apache-2.0. See [LICENSE](LICENSE).
 
 - Issues: https://github.com/blackoutsecure/bos-mcp-registry-engine/issues
 - Security: [SECURITY.md](SECURITY.md)
+
