@@ -429,6 +429,14 @@ async function main() {
   console.log(`📁 Source servers path: ${SOURCE_SERVERS_DIR}`);
   console.log(`📦 Registry output root: ${OUTPUT_ROOT_DIR}`);
   console.log(`🧾 Registry version path: ${REGISTRY_OUTPUT_DIR}\n`);
+
+  const outputBaseName = path.basename(OUTPUT_ROOT_DIR);
+  if (outputBaseName === `v${REGISTRY_VERSION}`) {
+    console.warn(
+      `⚠ Output path appears to be a version directory (${OUTPUT_ROOT_DIR}). Use the registry root (for example ./registry) so root index and Cloudflare files are included in deployment.\n`,
+    );
+  }
+
   if (ENABLE_CLOUDFLARE_PAGES_MODE) {
     console.log('☁️ Cloudflare Pages mode: enabled (_headers and _redirects will be generated)\n');
   }
