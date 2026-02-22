@@ -1,21 +1,32 @@
 {
-  "name": "mcp-registry-engine",
+  "name": "bos-mcp-registry-engine",
   "version": "1.0.0",
-  "description": "Static MCP Registry Engine - Generates and validates MCP server registry",
+  "description": "A host-agnostic static MCP Registry Engine that indexes, validates, and publishes MCP services. Generates a complete MCP registry under /registry/v0.1 for deployment to any static hosting environment or platform.",
   "type": "module",
   "main": "scripts/generate-registry.js",
   "scripts": {
     "generate": "node scripts/generate-registry.js",
     "validate": "node scripts/generate-registry.js --validate-only",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run validate"
   },
   "keywords": [
     "mcp",
     "registry",
-    "model-context-protocol"
+    "model-context-protocol",
+    "github-action",
+    "static-registry",
+    "blackout-secure"
   ],
-  "author": "",
+  "author": "Blackout Secure",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blackoutsecure/bos-mcp-registry-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/blackoutsecure/bos-mcp-registry-engine/issues"
+  },
+  "homepage": "https://github.com/blackoutsecure/bos-mcp-registry-engine#readme",
   "dependencies": {
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
@@ -24,6 +35,6 @@
   },
   "devDependencies": {},
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   }
 }

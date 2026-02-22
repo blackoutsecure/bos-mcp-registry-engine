@@ -1,29 +1,29 @@
 # GitHub Copilot Instructions
 
-You are working in a repository that implements a **static MCP Registry Engine**.
+You are working in a repository for the **Blackout Secure MCP Registry Engine**, a static MCP registry builder.
 
-## GOALS
+## Scope
 
 - Do NOT build an MCP server here.
 - Do NOT add Docker, Express, or any backend.
-- This repo is ONLY for:
+- This repository is only for:
   - Generating static MCP registry JSON
-  - Validating MCP server definitions
-  - Optionally scanning other repositories for MCP server metadata
-  - Producing a single registry folder: /registry/v0.1
-  - Exposing a GitHub Action that runs the engine
+  - Validating MCP server definitions against schemas
+  - Optionally ingesting additional server definitions from configured local paths
+  - Producing registry output under `/registry/v0.1`
+  - Exposing a reusable GitHub Action that runs the generator
 
-## ARCHITECTURE
+## Data Model
 
-1. MCP servers publish metadata into:
+1. Each server definition uses:
    - servers/<name>/server.json
    - servers/<name>/versions/<semver>.json
 
-2. A Node.js script at:
+2. The generator script:
    - scripts/generate-registry.js
-   must:
+  must:
    - Read all servers from /servers
-   - Optionally read additional servers from repositories listed in mcp-registry.config.json
+  - Optionally read additional server roots listed in mcp-registry.config.json
    - Validate JSON against MCP schemas
    - Generate:
        /registry/v0.1/servers.json
@@ -32,31 +32,32 @@ You are working in a repository that implements a **static MCP Registry Engine**
 
 3. The output must be 100% static and host‑agnostic.
 
-## GITHUB ACTION
+## GitHub Action
 
-Create an Action (action.yml) that:
+The Action in `action.yml` must:
 - Runs the Node.js generator
 - Accepts inputs:
     - source (default: ./servers)
     - output (default: ./registry)
 - Does NOT define workflows; only the Action itself.
 
-## DO NOT
+## Guardrails
 
 - Add .github/workflows here as part of the Action definition.
 - Implement an MCP server.
 - Add runtime hosting logic.
 
-## DO
+## Engineering Expectations
 
-- Focus on clean, typed Node.js scripts.
+- Keep implementation small, composable, and host‑agnostic.
 - Provide clear error messages when validation fails.
-- Keep the engine small, composable, and host‑agnostic.
+- Preserve the registry output contract and folder layout.
+- Avoid unrelated refactors.
 
-## TEMPLATES
+## Reference Template
 
-Use the GitHub MCP Server as an example entry:
+Use the GitHub MCP Server sample as the baseline format:
 - servers/github/server.json
 - servers/github/versions/1.0.0.json
 
-Your job is to generate code, scripts, and configuration that follow these rules exactly.
+All code, scripts, and docs updates must follow these rules.

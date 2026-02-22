@@ -1,261 +1,155 @@
-# MCP Registry Engine
+# Blackout Secure MCP Registry Engine
 
-A **static MCP Registry Engine** that generates and validates MCP (Model Context Protocol) server definitions.
+Copyright © 2025-2026 Blackout Secure | Apache License 2.0
 
-## 🎯 Purpose
+[![GitHub Marketplace](https://img.shields.io/badge/GitHub%20Marketplace-Action-blue?logo=github)](https://github.com/marketplace)
+[![GitHub release](https://img.shields.io/github/v/release/blackoutsecure/bos-mcp-registry-engine?sort=semver)](https://github.com/blackoutsecure/bos-mcp-registry-engine/releases)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-This repository is designed to:
+A host-agnostic static MCP Registry Engine that indexes, validates, and publishes MCP services. Generates a complete MCP registry under `/registry/v0.1` for deployment to any static hosting environment or platform.
 
-- ✅ Generate static MCP registry JSON files
-- ✅ Validate MCP server definitions against schemas
-- ✅ Produce a versioned registry at `/registry/v0.1`
-- ✅ Provide a GitHub Action for automated registry generation
+## ✨ Features
 
-**This is NOT:**
+- Static MCP registry generation with no runtime hosting dependency
+- Schema validation for `server.json` and version manifests
+- Semantic-version sorting with automatic `latest.json` generation
+- Optional aggregation of external local repositories via config
+- Composite GitHub Action for CI/CD automation
+- Portable output for GitHub Pages, Blob storage, CDN, or any static host
 
-- ❌ An MCP server implementation
-- ❌ A backend service with Docker/Express
-- ❌ A runtime hosting solution
+## 📋 Requirements
 
-## 📁 Structure
-
-```text
-mcp-registry-engine/
-├── .github/
-│   └── copilot-instructions.md    # GitHub Copilot guidance
-├── servers/                        # Server definitions
-│   └── <name>/
-│       ├── server.json            # Server metadata
-│       └── versions/
-│           └── <semver>.json      # Version-specific data
-├── schemas/                        # JSON schemas
-│   ├── server.schema.json         # Server validation schema
-│   └── version.schema.json        # Version validation schema
-├── scripts/
-│   └── generate-registry.js       # Main generator script
-├── registry/                       # Generated output (gitignored)
-│   └── v0.1/
-│       ├── servers.json           # Index of all servers
-│       └── servers/<name>/versions/
-│           ├── <version>.json     # Specific versions
-│           └── latest.json        # Latest version
-├── mcp-registry.config.json       # Configuration
-├── action.yml                      # GitHub Action definition
-└── package.json
-```
+- Node.js 18+
+- MCP server manifests under `servers/<name>/`
 
 ## 🚀 Quick Start
 
-### Installation
+### Local CLI
 
 ```bash
 npm install
-```
-
-### Generate Registry
-
-```bash
+npm run validate
 npm run generate
 ```
 
-### Validate Only
-
-```bash
-npm run validate
-```
-
-## 📝 Adding a Server
-
-1. Create a directory under `servers/<your-server-name>/`
-
-1. Create `server.json`:
-
-   ```json
-   {
-     "name": "your-server",
-     "displayName": "Your MCP Server",
-     "description": "What your server does",
-     "author": "Your Name",
-     "homepage": "https://your-server.com",
-     "repository": "https://github.com/you/your-server",
-    "license": "Apache-2.0",
-     "categories": ["development"],
-     "tags": ["tool", "automation"]
-   }
-   ```
-
-1. Create version files in `versions/<semver>.json`:
-
-   ```json
-   {
-     "version": "1.0.0",
-     "releaseDate": "2024-11-20",
-     "mcpVersion": "0.1",
-     "runtime": "node",
-     "minNodeVersion": "16.0.0",
-     "installCommand": "npm install -g your-package",
-     "runCommand": "your-command",
-     "capabilities": {
-       "resources": true,
-       "tools": true,
-       "prompts": false
-     },
-     "tools": [],
-     "resources": [],
-     "configuration": {
-       "required": [],
-       "optional": []
-     }
-   }
-   ```
-
-1. Run the generator to validate and build:
-
-   ```bash
-   npm run generate
-   ```
-
-## 🎬 Using as a GitHub Action
-
-This repository provides a reusable GitHub Action for generating MCP registries.
-
-### Basic Usage in Your Workflow
-
-Create `.github/workflows/generate-registry.yml`:
+### GitHub Action
 
 ```yaml
-name: Generate MCP Registry
+name: Build MCP Registry
 
 on:
   push:
     branches: [main]
     paths:
       - 'servers/**'
+      - 'schemas/**'
+      - 'scripts/**'
 
 jobs:
-  generate:
+  registry:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Generate Registry
-        uses: blackoutmode/mcp-registry-engine@v1
+
+      - name: Generate registry
+        uses: blackoutsecure/bos-mcp-registry-engine@v1
         with:
           source: './servers'
           output: './registry'
-      
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mcp-registry
-          path: registry/
 ```
 
-### Use Locally (This Repository)
+## ⚙️ Action Inputs
 
-If using the action in this repository:
+| Input    | Description                          | Default      |
+| -------- | ------------------------------------ | ------------ |
+| `source` | Path to server definitions directory | `./servers`  |
+| `output` | Path to output registry root         | `./registry` |
 
-```yaml
-- name: Generate MCP Registry
-  uses: ./
-  with:
-    source: './servers'
-    output: './registry'
+The action writes generated files to `<output>/v0.1`.
+
+## 🧱 Repository Structure
+
+```text
+servers/
+  <name>/
+    server.json
+    versions/
+      <semver>.json
+schemas/
+  server.schema.json
+  version.schema.json
+scripts/
+  generate-registry.js
+registry/
+  v0.1/
+    servers.json
+    servers/<name>/versions/<version>.json
+    servers/<name>/versions/latest.json
 ```
 
-### Deploy to GitHub Pages
+## 📝 Add a Server
 
-```yaml
-name: Deploy to Pages
+1. Create `servers/<name>/server.json`
+2. Create one or more `servers/<name>/versions/<semver>.json`
+3. Run `npm run validate`
+4. Run `npm run generate`
 
-on:
-  push:
-    branches: [main]
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: blackoutmode/mcp-registry-engine@v1
-      
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-      
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './registry'
-      
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
-```
-
-## 📚 Example
-
-See the GitHub MCP Server example:
+Sample files:
 
 - [servers/github/server.json](servers/github/server.json)
 - [servers/github/versions/1.0.0.json](servers/github/versions/1.0.0.json)
 
-## ✅ Validation
+## 📦 Output Contract
 
-The engine validates all JSON files against schemas:
+Generated files:
 
-- Server metadata must include: `name`, `displayName`, `description`, `author`, `homepage`
-- Version files must include: `version`, `mcpVersion`, `runtime`
-- Version numbers must follow semantic versioning (e.g., `1.0.0`)
+- `registry/v0.1/servers.json`
+- `registry/v0.1/servers/<name>/versions/<version>.json`
+- `registry/v0.1/servers/<name>/versions/latest.json`
 
-## 🏗️ Output Format
+`servers.json` includes:
 
-The generated `registry/v0.1/servers.json` contains:
+- Registry version
+- Generation timestamp
+- Normalized server index with latest version and full version list
+
+## 🌐 External Repositories (Optional)
+
+Configure additional local paths in `mcp-registry.config.json`:
 
 ```json
 {
   "version": "0.1",
-  "generatedAt": "2024-11-20T12:00:00.000Z",
-  "servers": [
-    {
-      "name": "github",
-      "displayName": "GitHub MCP Server",
-      "description": "...",
-      "latestVersion": "1.0.0",
-      "versions": ["1.0.0"]
-    }
+  "externalRepositories": [
+    "../another-repo/servers",
+    { "path": "../team-repo/servers" }
   ]
 }
 ```
 
-Individual server versions are at:
-
-- `registry/v0.1/servers/<name>/versions/<version>.json`
-- `registry/v0.1/servers/<name>/versions/latest.json`
-
-## 🗂️ Ignored Files
-
-The following are automatically excluded from version control (see [.gitignore](.gitignore)):
-
-- **Generated files**: `registry/` folder (build output)
-- **Dependencies**: `node_modules/`, `yarn.lock`, `pnpm-lock.yaml`
-- **IDE files**: `.vscode/`, `.idea/`, `*.swp`
-- **OS files**: `.DS_Store`, `Thumbs.db`
-- **Environment files**: `.env`, `.env.local`
-- **Logs**: `*.log`, `npm-debug.log*`
-
-**Note**: `package-lock.json` is intentionally **committed** for reproducible builds.
+Each external path must point to a `servers`-style directory.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Add your server definition to `servers/`
-3. Run `npm run validate` to check for errors
-4. Submit a pull request
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## ✅ Release Checklist
+
+- Update version in `package.json` if required
+- Run `npm run validate`
+- Run `npm run generate`
+- Confirm action metadata in `action.yml`
+- Publish a GitHub release with changelog notes
 
 ## 📄 License
 
-Apache-2.0
+Licensed under Apache License 2.0. See [LICENSE](LICENSE).
+
+## 💬 Support
+
+- Issues: [GitHub Issues](https://github.com/blackoutsecure/bos-mcp-registry-engine/issues)
+- Security: See [SECURITY.md](SECURITY.md)
+
+---
+
+**Made by [Blackout Secure](https://github.com/blackoutsecure)**

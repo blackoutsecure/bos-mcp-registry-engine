@@ -1,0 +1,26 @@
+# Exclude development and generated artifacts from npm package
+.git/
+.github/
+node_modules/
+registry/
+dist/
+build/
+
+# Local/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs and env
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.*.local
+
+# Keep action runtime sources and docs in package
+# (files are included by default unless listed above)

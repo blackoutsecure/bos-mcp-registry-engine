@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+/**
+ * Blackout Secure MCP Registry Engine
+ * Copyright © 2025-2026 Blackout Secure
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,149 +15,244 @@ import semver from 'semver';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const WORKSPACE_ROOT = path.resolve(__dirname, '..');
-const SERVERS_DIR = path.join(WORKSPACE_ROOT, 'servers');
-const REGISTRY_DIR = path.join(WORKSPACE_ROOT, 'registry', 'v0.1');
+
+const REGISTRY_VERSION = '0.1';
+const SOURCE_SERVERS_DIR = resolveWorkspacePath(process.env.SERVERS_DIR, 'servers');
+const OUTPUT_ROOT_DIR = resolveWorkspacePath(process.env.REGISTRY_DIR, 'registry');
+const REGISTRY_OUTPUT_DIR = path.join(OUTPUT_ROOT_DIR, `v${REGISTRY_VERSION}`);
 const SCHEMAS_DIR = path.join(WORKSPACE_ROOT, 'schemas');
 const CONFIG_FILE = path.join(WORKSPACE_ROOT, 'mcp-registry.config.json');
 
-// Initialize JSON Schema validator
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
 
-let serverSchema;
-let versionSchema;
+function resolveWorkspacePath(value, fallback) {
+  if (!value || !String(value).trim()) {
+    return path.resolve(WORKSPACE_ROOT, fallback);
+  }
+  return path.resolve(WORKSPACE_ROOT, String(value));
+}
 
-/**
- * Load JSON schemas for validation
- */
+function formatValidationPath(instancePath) {
+  return instancePath && instancePath.length > 0 ? instancePath : '/';
+}
+
+function createValidator(schema) {
+  const validate = ajv.compile(schema);
+  return (data, filename) => {
+    const isValid = validate(data);
+    if (isValid) {
+      return true;
+    }
+
+    console.error(`\n✗ Validation failed for ${filename}:`);
+    for (const error of validate.errors || []) {
+      console.error(`  - ${formatValidationPath(error.instancePath)} ${error.message}`);
+    }
+    return false;
+  };
+}
+
 async function loadSchemas() {
   try {
-    serverSchema = await fs.readJson(path.join(SCHEMAS_DIR, 'server.schema.json'));
-    versionSchema = await fs.readJson(path.join(SCHEMAS_DIR, 'version.schema.json'));
-    console.log('✓ Schemas loaded successfully');
+    const [serverSchema, versionSchema] = await Promise.all([
+      fs.readJson(path.join(SCHEMAS_DIR, 'server.schema.json')),
+      fs.readJson(path.join(SCHEMAS_DIR, 'version.schema.json')),
+    ]);
+
+    return {
+      validateServer: createValidator(serverSchema),
+      validateVersion: createValidator(versionSchema),
+    };
   } catch (error) {
     console.error('✗ Failed to load schemas:', error.message);
     process.exit(1);
   }
 }
 
-/**
- * Validate JSON against a schema
- */
-function validateJson(data, schema, filename) {
-  const validate = ajv.compile(schema);
-  const valid = validate(data);
-  
-  if (!valid) {
-    console.error(`\n✗ Validation failed for ${filename}:`);
-    validate.errors.forEach(error => {
-      console.error(`  - ${error.instancePath} ${error.message}`);
-    });
-    return false;
+async function loadConfig() {
+  if (!(await fs.pathExists(CONFIG_FILE))) {
+    return { version: REGISTRY_VERSION, externalRepositories: [] };
   }
-  
-  return true;
+
+  try {
+    const config = await fs.readJson(CONFIG_FILE);
+    return {
+      version: config.version || REGISTRY_VERSION,
+      externalRepositories: Array.isArray(config.externalRepositories)
+        ? config.externalRepositories
+        : [],
+    };
+  } catch (error) {
+    console.error(`✗ Failed to parse ${path.basename(CONFIG_FILE)}:`, error.message);
+    process.exit(1);
+  }
 }
 
-/**
- * Read all server definitions from the servers directory
- */
-async function readServers() {
-  const servers = [];
-  
-  if (!await fs.pathExists(SERVERS_DIR)) {
-    console.error(`✗ Servers directory not found: ${SERVERS_DIR}`);
-    return servers;
+function normalizeExternalPath(entry) {
+  if (typeof entry === 'string') {
+    return entry;
   }
-  
-  const serverNames = await fs.readdir(SERVERS_DIR);
-  
-  for (const serverName of serverNames) {
-    const serverDir = path.join(SERVERS_DIR, serverName);
-    const stats = await fs.stat(serverDir);
-    
-    if (!stats.isDirectory()) continue;
-    
-    try {
-      // Read server.json
-      const serverJsonPath = path.join(serverDir, 'server.json');
-      if (!await fs.pathExists(serverJsonPath)) {
-        console.warn(`⚠ Skipping ${serverName}: missing server.json`);
-        continue;
-      }
-      
-      const serverData = await fs.readJson(serverJsonPath);
-      
-      // Validate server metadata
-      if (!validateJson(serverData, serverSchema, `${serverName}/server.json`)) {
-        console.error(`✗ Skipping ${serverName} due to validation errors`);
-        continue;
-      }
-      
-      // Read versions
-      const versionsDir = path.join(serverDir, 'versions');
-      const versions = [];
-      
-      if (await fs.pathExists(versionsDir)) {
-        const versionFiles = await fs.readdir(versionsDir);
-        
-        for (const versionFile of versionFiles) {
-          if (!versionFile.endsWith('.json')) continue;
-          
-          const versionPath = path.join(versionsDir, versionFile);
-          const versionData = await fs.readJson(versionPath);
-          
-          // Validate version metadata
-          if (!validateJson(versionData, versionSchema, `${serverName}/versions/${versionFile}`)) {
-            console.error(`✗ Skipping version ${versionFile} due to validation errors`);
-            continue;
-          }
-          
-          versions.push({
-            version: versionData.version,
-            data: versionData
-          });
-        }
-      }
-      
-      if (versions.length === 0) {
-        console.warn(`⚠ Server ${serverName} has no valid versions`);
-        continue;
-      }
-      
-      // Sort versions
-      versions.sort((a, b) => semver.rcompare(a.version, b.version));
-      
-      servers.push({
-        name: serverData.name,
-        serverData,
-        versions,
-        latestVersion: versions[0]
-      });
-      
-      console.log(`✓ Loaded ${serverName} with ${versions.length} version(s)`);
-      
-    } catch (error) {
-      console.error(`✗ Error processing ${serverName}:`, error.message);
+
+  if (entry && typeof entry === 'object') {
+    if (typeof entry.path === 'string') {
+      return entry.path;
+    }
+    if (typeof entry.serversPath === 'string') {
+      return entry.serversPath;
     }
   }
-  
-  return servers;
+
+  return null;
 }
 
-/**
- * Generate the registry output
- */
-async function generateRegistry(servers) {
-  console.log('\n📝 Generating registry...');
-  
-  // Ensure output directory exists
-  await fs.ensureDir(REGISTRY_DIR);
-  
-  // Generate servers.json (index)
-  const serversIndex = servers.map(server => ({
+async function resolveServerRoots(config) {
+  const roots = [{ path: SOURCE_SERVERS_DIR, source: 'local' }];
+
+  for (const [index, entry] of config.externalRepositories.entries()) {
+    const rawPath = normalizeExternalPath(entry);
+    if (!rawPath) {
+      console.warn(`⚠ Skipping externalRepositories[${index}]: unsupported format`);
+      continue;
+    }
+
+    const resolvedPath = path.resolve(WORKSPACE_ROOT, rawPath);
+    if (!(await fs.pathExists(resolvedPath))) {
+      console.warn(`⚠ Skipping external path not found: ${resolvedPath}`);
+      continue;
+    }
+
+    const stats = await fs.stat(resolvedPath);
+    if (!stats.isDirectory()) {
+      console.warn(`⚠ Skipping external path (not a directory): ${resolvedPath}`);
+      continue;
+    }
+
+    roots.push({ path: resolvedPath, source: `external:${rawPath}` });
+  }
+
+  return roots;
+}
+
+function readVersionFileNames(versionFiles) {
+  return versionFiles.filter((filename) => filename.endsWith('.json') && filename !== 'latest.json');
+}
+
+async function readServerFromDirectory(serverDir, source, validators) {
+  const serverName = path.basename(serverDir);
+  const serverJsonPath = path.join(serverDir, 'server.json');
+
+  if (!(await fs.pathExists(serverJsonPath))) {
+    return null;
+  }
+
+  let serverData;
+  try {
+    serverData = await fs.readJson(serverJsonPath);
+  } catch (error) {
+    console.error(`✗ Failed to parse ${serverName}/server.json (${source}):`, error.message);
+    return null;
+  }
+
+  if (!validators.validateServer(serverData, `${serverName}/server.json`)) {
+    return null;
+  }
+
+  const versionsDir = path.join(serverDir, 'versions');
+  if (!(await fs.pathExists(versionsDir))) {
+    console.warn(`⚠ Skipping ${serverName}: missing versions directory (${source})`);
+    return null;
+  }
+
+  const versions = [];
+  const versionFiles = readVersionFileNames(await fs.readdir(versionsDir));
+
+  for (const versionFile of versionFiles) {
+    const versionPath = path.join(versionsDir, versionFile);
+
+    let versionData;
+    try {
+      versionData = await fs.readJson(versionPath);
+    } catch (error) {
+      console.error(`✗ Failed to parse ${serverName}/versions/${versionFile}:`, error.message);
+      continue;
+    }
+
+    if (!validators.validateVersion(versionData, `${serverName}/versions/${versionFile}`)) {
+      continue;
+    }
+
+    if (!semver.valid(versionData.version)) {
+      console.error(
+        `✗ Invalid semantic version in ${serverName}/versions/${versionFile}: ${versionData.version}`,
+      );
+      continue;
+    }
+
+    versions.push({
+      version: versionData.version,
+      data: versionData,
+    });
+  }
+
+  if (versions.length === 0) {
+    console.warn(`⚠ Skipping ${serverName}: no valid versions (${source})`);
+    return null;
+  }
+
+  versions.sort((a, b) => semver.rcompare(a.version, b.version));
+
+  return {
+    name: serverData.name,
+    source,
+    serverData,
+    versions,
+    latestVersion: versions[0],
+  };
+}
+
+async function readServers(validators, config) {
+  const roots = await resolveServerRoots(config);
+  const serversByName = new Map();
+
+  for (const root of roots) {
+    if (!(await fs.pathExists(root.path))) {
+      console.warn(`⚠ Skipping source path not found: ${root.path}`);
+      continue;
+    }
+
+    const entries = await fs.readdir(root.path);
+    for (const entry of entries) {
+      const serverDir = path.join(root.path, entry);
+      const stats = await fs.stat(serverDir);
+      if (!stats.isDirectory()) {
+        continue;
+      }
+
+      const server = await readServerFromDirectory(serverDir, root.source, validators);
+      if (!server) {
+        continue;
+      }
+
+      const existing = serversByName.get(server.name);
+      if (existing) {
+        console.warn(
+          `⚠ Duplicate server "${server.name}" from ${server.source} ignored; using ${existing.source}`,
+        );
+        continue;
+      }
+
+      serversByName.set(server.name, server);
+      console.log(`✓ Loaded ${server.name} (${server.versions.length} version(s), ${server.source})`);
+    }
+  }
+
+  return Array.from(serversByName.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function buildServersIndex(servers) {
+  return servers.map((server) => ({
     name: server.serverData.name,
     displayName: server.serverData.displayName,
     description: server.serverData.description,
@@ -162,77 +263,78 @@ async function generateRegistry(servers) {
     categories: server.serverData.categories || [],
     tags: server.serverData.tags || [],
     latestVersion: server.latestVersion.version,
-    versions: server.versions.map(v => v.version)
+    versions: server.versions.map((item) => item.version),
   }));
-  
-  const indexPath = path.join(REGISTRY_DIR, 'servers.json');
-  await fs.writeJson(indexPath, {
-    version: '0.1',
-    generatedAt: new Date().toISOString(),
-    servers: serversIndex
-  }, { spaces: 2 });
-  console.log(`✓ Generated ${indexPath}`);
-  
-  // Generate individual server version files
-  for (const server of servers) {
-    const serverDir = path.join(REGISTRY_DIR, 'servers', server.name, 'versions');
-    await fs.ensureDir(serverDir);
-    
-    // Write each version
-    for (const version of server.versions) {
-      const versionFile = path.join(serverDir, `${version.version}.json`);
-      await fs.writeJson(versionFile, {
-        ...server.serverData,
-        ...version.data
-      }, { spaces: 2 });
-    }
-    
-    // Write latest.json
-    const latestFile = path.join(serverDir, 'latest.json');
-    await fs.writeJson(latestFile, {
-      ...server.serverData,
-      ...server.latestVersion.data
-    }, { spaces: 2 });
-    
-    console.log(`✓ Generated ${server.versions.length} version(s) for ${server.name}`);
-  }
-  
-  console.log(`\n✓ Registry generated successfully at ${REGISTRY_DIR}`);
-  console.log(`  Total servers: ${servers.length}`);
 }
 
-/**
- * Main function
- */
+async function generateRegistry(servers) {
+  await fs.ensureDir(REGISTRY_OUTPUT_DIR);
+
+  const serversIndex = buildServersIndex(servers);
+  await fs.writeJson(
+    path.join(REGISTRY_OUTPUT_DIR, 'servers.json'),
+    {
+      version: REGISTRY_VERSION,
+      generatedAt: new Date().toISOString(),
+      servers: serversIndex,
+    },
+    { spaces: 2 },
+  );
+
+  for (const server of servers) {
+    const versionsDir = path.join(REGISTRY_OUTPUT_DIR, 'servers', server.name, 'versions');
+    await fs.ensureDir(versionsDir);
+
+    for (const version of server.versions) {
+      await fs.writeJson(
+        path.join(versionsDir, `${version.version}.json`),
+        {
+          ...server.serverData,
+          ...version.data,
+        },
+        { spaces: 2 },
+      );
+    }
+
+    await fs.writeJson(
+      path.join(versionsDir, 'latest.json'),
+      {
+        ...server.serverData,
+        ...server.latestVersion.data,
+      },
+      { spaces: 2 },
+    );
+  }
+}
+
 async function main() {
-  console.log('🚀 MCP Registry Engine\n');
-  
-  const args = process.argv.slice(2);
-  const validateOnly = args.includes('--validate-only');
-  
-  // Load schemas
-  await loadSchemas();
-  
-  // Read and validate servers
-  console.log('\n📚 Reading server definitions...');
-  const servers = await readServers();
-  
+  console.log('🚀 Blackout Secure MCP Registry Engine\n');
+
+  const validateOnly = process.argv.slice(2).includes('--validate-only');
+  const validators = await loadSchemas();
+  const config = await loadConfig();
+
+  console.log(`📁 Source servers path: ${SOURCE_SERVERS_DIR}`);
+  console.log(`📦 Registry output root: ${OUTPUT_ROOT_DIR}`);
+  console.log(`🧾 Registry version path: ${REGISTRY_OUTPUT_DIR}\n`);
+
+  const servers = await readServers(validators, config);
   if (servers.length === 0) {
     console.error('\n✗ No valid servers found');
     process.exit(1);
   }
-  
+
   if (validateOnly) {
     console.log(`\n✓ Validation complete: ${servers.length} server(s) validated successfully`);
     return;
   }
-  
-  // Generate registry
+
   await generateRegistry(servers);
+  console.log(`\n✓ Registry generated successfully at ${REGISTRY_OUTPUT_DIR}`);
+  console.log(`✓ Total servers: ${servers.length}`);
 }
 
-// Run the script
-main().catch(error => {
+main().catch((error) => {
   console.error('\n✗ Fatal error:', error);
   process.exit(1);
 });

@@ -1,6 +1,6 @@
-name: 'MCP Registry Generator'
-description: 'Generate static MCP registry from server definitions'
-author: 'MCP Registry Engine'
+name: 'Blackout Secure MCP Registry Engine'
+description: 'A host-agnostic static MCP Registry Engine that indexes, validates, and publishes MCP services. Generates a complete MCP registry under /registry/v0.1 for deployment to any static hosting environment or platform.'
+author: 'Blackout Secure'
 
 branding:
   icon: 'package'
@@ -22,13 +22,13 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
-    
+        node-version: '20'
+
     - name: Install dependencies
       shell: bash
-      run: npm install
+      run: npm ci --omit=dev
       working-directory: ${{ github.action_path }}
-    
+
     - name: Generate registry
       shell: bash
       run: |
