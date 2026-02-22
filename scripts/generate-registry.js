@@ -267,8 +267,57 @@ function buildServersIndex(servers) {
   }));
 }
 
+function buildRootIndexHtml() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blackout Secure MCP Registry</title>
+    <meta http-equiv="refresh" content="0; url=./v${REGISTRY_VERSION}/" />
+  </head>
+  <body>
+    <main>
+      <h1>Blackout Secure MCP Registry</h1>
+      <p>Redirecting to the latest registry index…</p>
+      <p>
+        If you are not redirected, open
+        <a href="./v${REGISTRY_VERSION}/">v${REGISTRY_VERSION}</a> or
+        <a href="./v${REGISTRY_VERSION}/servers.json">servers.json</a>.
+      </p>
+    </main>
+  </body>
+</html>
+`;
+}
+
+function buildVersionIndexHtml() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blackout Secure MCP Registry v${REGISTRY_VERSION}</title>
+  </head>
+  <body>
+    <main>
+      <h1>Blackout Secure MCP Registry v${REGISTRY_VERSION}</h1>
+      <p>Static registry index for MCP server discovery.</p>
+      <ul>
+        <li><a href="./servers.json">servers.json</a></li>
+      </ul>
+    </main>
+  </body>
+</html>
+`;
+}
+
 async function generateRegistry(servers) {
+  await fs.ensureDir(OUTPUT_ROOT_DIR);
   await fs.ensureDir(REGISTRY_OUTPUT_DIR);
+
+  await fs.writeFile(path.join(OUTPUT_ROOT_DIR, 'index.html'), buildRootIndexHtml(), 'utf8');
+  await fs.writeFile(path.join(REGISTRY_OUTPUT_DIR, 'index.html'), buildVersionIndexHtml(), 'utf8');
 
   const serversIndex = buildServersIndex(servers);
   await fs.writeJson(
