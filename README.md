@@ -6,7 +6,7 @@ Copyright © 2025-2026 Blackout Secure | Apache License 2.0
 [![GitHub release](https://img.shields.io/github/v/release/blackoutsecure/bos-mcp-registry-engine?sort=semver)](https://github.com/blackoutsecure/bos-mcp-registry-engine/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-A host-agnostic static MCP Registry Engine that indexes, validates, and publishes MCP services. Generates a complete MCP registry under `/registry/v0.1` for deployment to any static hosting environment or platform.
+A static, host‑agnostic registry engine for MCP services, supporting validation, listing, and discovery.
 
 ## ✨ Features
 
