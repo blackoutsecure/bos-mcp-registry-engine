@@ -370,16 +370,28 @@ async function generateRegistry(servers) {
   await fs.ensureDir(OUTPUT_ROOT_DIR);
   await fs.ensureDir(REGISTRY_OUTPUT_DIR);
 
-  await fs.writeFile(path.join(OUTPUT_ROOT_DIR, 'index.html'), buildRootIndexHtml(), 'utf8');
-  await fs.writeFile(path.join(REGISTRY_OUTPUT_DIR, 'index.html'), buildVersionIndexHtml(), 'utf8');
+  const rootIndexPath = path.join(OUTPUT_ROOT_DIR, 'index.html');
+  const versionIndexPath = path.join(REGISTRY_OUTPUT_DIR, 'index.html');
+  const cloudflareHeadersPath = path.join(OUTPUT_ROOT_DIR, '_headers');
+  const cloudflareRedirectsPath = path.join(OUTPUT_ROOT_DIR, '_redirects');
+
+  await fs.writeFile(rootIndexPath, buildRootIndexHtml(), 'utf8');
+  await fs.writeFile(versionIndexPath, buildVersionIndexHtml(), 'utf8');
   if (ENABLE_CLOUDFLARE_PAGES_MODE) {
-    await fs.writeFile(path.join(OUTPUT_ROOT_DIR, '_headers'), buildCloudflareHeaders(), 'utf8');
-    await fs.writeFile(path.join(OUTPUT_ROOT_DIR, '_redirects'), buildCloudflareRedirects(), 'utf8');
+    await fs.writeFile(cloudflareHeadersPath, buildCloudflareHeaders(), 'utf8');
+    await fs.writeFile(cloudflareRedirectsPath, buildCloudflareRedirects(), 'utf8');
   } else {
     await Promise.all([
-      fs.remove(path.join(OUTPUT_ROOT_DIR, '_headers')),
-      fs.remove(path.join(OUTPUT_ROOT_DIR, '_redirects')),
+      fs.remove(cloudflareHeadersPath),
+      fs.remove(cloudflareRedirectsPath),
     ]);
+  }
+
+  console.log(`✓ Wrote ${rootIndexPath}`);
+  console.log(`✓ Wrote ${versionIndexPath}`);
+  if (ENABLE_CLOUDFLARE_PAGES_MODE) {
+    console.log(`✓ Wrote ${cloudflareHeadersPath}`);
+    console.log(`✓ Wrote ${cloudflareRedirectsPath}`);
   }
 
   const serversIndex = buildServersIndex(servers);
