@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["version", "mcpVersion", "runtime"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version number"
+    },
+    "releaseDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Release date in YYYY-MM-DD format"
+    },
+    "mcpVersion": {
+      "type": "string",
+      "description": "MCP protocol version supported"
+    },
+    "runtime": {
+      "type": "string",
+      "enum": ["node", "python", "docker", "binary"],
+      "description": "Runtime environment"
+    },
+    "minNodeVersion": {
+      "type": "string",
+      "description": "Minimum Node.js version (for node runtime)"
+    },
+    "minPythonVersion": {
+      "type": "string",
+      "description": "Minimum Python version (for python runtime)"
+    },
+    "installCommand": {
+      "type": "string",
+      "description": "Command to install the server"
+    },
+    "runCommand": {
+      "type": "string",
+      "description": "Command to run the server"
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "resources": {
+          "type": "boolean"
+        },
+        "tools": {
+          "type": "boolean"
+        },
+        "prompts": {
+          "type": "boolean"
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "prompts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

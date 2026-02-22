@@ -1,0 +1,11 @@
+{
+  "name": "github",
+  "displayName": "GitHub MCP Server",
+  "description": "MCP server for interacting with GitHub repositories, issues, pull requests, and more",
+  "author": "GitHub",
+  "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/github",
+  "repository": "https://github.com/modelcontextprotocol/servers",
+  "license": "Apache-2.0",
+  "categories": ["development", "collaboration"],
+  "tags": ["github", "git", "version-control", "code-review"]
+}
