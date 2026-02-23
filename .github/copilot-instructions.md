@@ -14,6 +14,16 @@ You are working in **Blackout Secure MCP Registry Engine**, a static MCP registr
 - Docs: https://registry.modelcontextprotocol.io/docs
 - OpenAPI: https://registry.modelcontextprotocol.io/openapi.yaml
 - Upstream repo: https://github.com/modelcontextprotocol/registry
+- MCP Specification (protocol): https://modelcontextprotocol.io/specification/2025-11-25
+- MCP protocol schema source of truth: https://github.com/modelcontextprotocol/specification/blob/main/schema/2025-11-25/schema.ts
+- Registry server schema reference: https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/draft/server.schema.json
+
+## Protocol and schema alignment
+
+- Treat MCP protocol semantics as authoritative from the 2025-11-25 specification and linked `schema.ts`.
+- Treat registry manifest structure as authoritative from the MCP Registry `server.schema.json` reference.
+- Preserve this repository's split manifest layout (`server.json` + `versions/<semver>.json`) while requiring current registry field semantics.
+- Do not accept legacy/alias field names when a current canonical field is defined by upstream schema.
 
 ## Repository scope
 
@@ -41,7 +51,6 @@ The generator must:
 - Read local servers from `servers/`
 - Optionally read external server roots from a custom config file when `MCP_REGISTRY_CONFIG` (or `--config`) is provided
 - Generate static versioned registry artifacts under `dist/<output>/v0.1` (Action runtime)
-- Generate `dist/<output>/v0` as compatibility alias of `v0.1` (Action runtime)
 - Generate hosting profile files:
   - `deployment_environment=github` → `.nojekyll`
   - `deployment_environment=cloudflare` → `_headers` and `_redirects`
@@ -59,7 +68,8 @@ The generator must:
   - `action_type` (required; supported: `generate_registry`, `validate_registry`, `generate_server_manifest`, `validate_server_manifest`)
   - `log_level` (optional; default `info`; supported: `debug`, `info`, `warn`, `error`)
   - `source` (default `./servers`)
-  - `output` (default `public`; action runtime resolves to `dist/<output>`)
+  - `output_directory` (default `dist`; action runtime base output directory)
+  - `output` (default `public`; action runtime resolves to `<output_directory>/<output>`)
   - `deployment_environment` (default `github`; supported: `github`, `cloudflare`, `none`)
   - `config` (optional custom config file path)
   - server-manifest inputs (used for `generate_server_manifest`/`validate_server_manifest`):

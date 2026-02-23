@@ -27,6 +27,14 @@ npm run validate
 npm run generate
 ```
 
+### Specification and schema references
+
+- MCP protocol baseline: https://modelcontextprotocol.io/specification/2025-11-25
+- MCP protocol schema source of truth: https://github.com/modelcontextprotocol/specification/blob/main/schema/2025-11-25/schema.ts
+- Registry manifest schema reference: https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/draft/server.schema.json
+
+Use these references when updating validation logic, manifest fields, or generated registry artifacts.
+
 ## Pull Request Checklist
 
 - [ ] JSON files pass validation

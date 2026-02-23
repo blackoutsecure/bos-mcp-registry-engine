@@ -6,13 +6,21 @@
 
 Static MCP registry generator and GitHub Marketplace Action for producing host-agnostic registry artifacts.
 
+## Specification alignment
+
+- Protocol baseline: MCP Specification 2025-11-25 (`https://modelcontextprotocol.io/specification/2025-11-25`)
+- Protocol schema source of truth: `https://github.com/modelcontextprotocol/specification/blob/main/schema/2025-11-25/schema.ts`
+- Registry manifest schema reference: `https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/draft/server.schema.json`
+- This project keeps a split static manifest model (`server.json` + `versions/<semver>.json`) and follows current registry field semantics.
+- Remote transports must use `remotes[].type` with current values (`sse`, `streamable-http`).
+
 ## What it does
 
 - Validates `servers/<name>/server.json` and `servers/<name>/versions/<semver>.json`
 - Generates static registry output under `<output_directory>/<output>`
 - Supports server-manifest lifecycle in MCP server repositories (generate/update + validate)
 - Keeps generated public artifacts in the configured `output` folder (default: `public`)
-- Produces versioned API-compatible artifacts for `v0.1` and `v0` alias
+- Produces versioned API-compatible artifacts for `v0.1`
 - Supports deployment profiles:
   - `github` (generates `.nojekyll`)
   - `cloudflare` (generates `_headers` and `_redirects`)
@@ -511,7 +519,6 @@ Core generated files (shown for Action defaults where `output: public`):
 - `dist/public/v0.1/servers/index.json`
 - `dist/public/v0.1/servers/<url-encoded-serverName>/versions/<version>.json`
 - `dist/public/v0.1/servers/<url-encoded-serverName>/versions/latest.json`
-- `dist/public/v0/` (compatibility alias of `v0.1`)
 
 Deployment-specific:
 

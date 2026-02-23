@@ -476,25 +476,6 @@ async function writeApiCompatJson(basePath, data) {
   ]);
 }
 
-async function listFilesRecursively(rootDir) {
-  const entries = await fs.readdir(rootDir);
-  const files = [];
-
-  for (const entry of entries) {
-    const entryPath = path.join(rootDir, entry);
-    const stats = await fs.stat(entryPath);
-
-    if (stats.isDirectory()) {
-      files.push(...(await listFilesRecursively(entryPath)));
-      continue;
-    }
-
-    files.push(entryPath);
-  }
-
-  return files;
-}
-
 async function generateRegistry({
   logger,
   outputRootDir,
@@ -663,16 +644,6 @@ async function generateRegistry({
   return Array.from(generatedFiles);
 }
 
-async function createVersionAlias(outputRootDir, registryVersion) {
-  const sourceVersionDir = path.join(outputRootDir, `v${registryVersion}`);
-  const legacyVersionDir = path.join(outputRootDir, 'v0');
-
-  await fs.remove(legacyVersionDir);
-  await fs.copy(sourceVersionDir, legacyVersionDir);
-
-  return listFilesRecursively(legacyVersionDir);
-}
-
 async function runRegistryGeneration(options = {}) {
   const logger = options.logger || createLogger('info');
   const { defaults, env: envKeys } = PROJECT_CONFIG.runtime;
@@ -794,14 +765,7 @@ async function runRegistryGeneration(options = {}) {
     deploymentEnvironment,
     servers,
   });
-  const generatedAliasFiles = await createVersionAlias(
-    outputRootDir,
-    registryVersion,
-  );
-
-  const generatedFiles = Array.from(
-    new Set([...generatedRegistryFiles, ...generatedAliasFiles]),
-  ).sort();
+  const generatedFiles = Array.from(new Set(generatedRegistryFiles)).sort();
 
   for (const generatedFile of generatedFiles) {
     logger.debug(
@@ -810,9 +774,6 @@ async function runRegistryGeneration(options = {}) {
   }
 
   logger.info(`\n✓ Registry generated successfully at ${registryOutputDir}`);
-  logger.info(
-    `✓ Created API compatibility alias at ${path.join(outputRootDir, 'v0')}`,
-  );
   logger.info(`✓ Total servers: ${servers.length}`);
 
   return {

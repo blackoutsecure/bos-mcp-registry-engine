@@ -47,7 +47,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["stdio", "http", "sse", "streamable-http"]
+                "enum": ["stdio", "sse", "streamable-http"]
               }
             },
             "additionalProperties": true
@@ -81,15 +81,15 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["transportType", "url"],
+        "required": ["type", "url"],
         "properties": {
-          "transportType": {
+          "type": {
             "type": "string",
-            "enum": ["http", "sse", "streamable-http"]
+            "enum": ["sse", "streamable-http"]
           },
           "url": {
             "type": "string",
-            "format": "uri"
+            "pattern": "^(https?://[^\\s]+|\\{[a-zA-Z_][a-zA-Z0-9_]*\\}[^\\s]*)$"
           }
         },
         "additionalProperties": true

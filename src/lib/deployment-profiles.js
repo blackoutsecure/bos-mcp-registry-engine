@@ -37,18 +37,6 @@ function buildCloudflareHeaders(registryVersion) {
   Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
   Cache-Control: no-store
 
-/v0/servers
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
-/v0/servers/index.json
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, If-Modified-Since, Cache-Control
-  Cache-Control: no-store
-
 /v${registryVersion}/health
   Access-Control-Allow-Origin: *
   Access-Control-Allow-Methods: GET, HEAD, OPTIONS
@@ -116,7 +104,6 @@ function buildCloudflareRedirects(registryVersion) {
 /v${registryVersion} /v${registryVersion}/ 302
 /servers.json /v${registryVersion}/servers.json 302
 /servers /v${registryVersion}/servers/index.json 302
-/v0/servers /v${registryVersion}/servers/index.json 302
 /health /v${registryVersion}/health.json 302
 /ping /v${registryVersion}/ping.json 302
 /version /v${registryVersion}/version.json 302

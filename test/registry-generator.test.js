@@ -63,7 +63,6 @@ describe('registry-generator', () => {
 
     const outputRoot = resolveOutputPath(workspaceRoot);
     const versionRoot = path.join(outputRoot, 'v0.1');
-    const v0AliasRoot = path.join(outputRoot, 'v0');
 
     expect(await fs.pathExists(path.join(outputRoot, 'index.html'))).to.equal(
       true,
@@ -76,12 +75,6 @@ describe('registry-generator', () => {
     ).to.equal(true);
     expect(
       await fs.pathExists(path.join(versionRoot, 'servers', 'index.json')),
-    ).to.equal(true);
-    expect(
-      await fs.pathExists(path.join(v0AliasRoot, 'servers', 'index.json')),
-    ).to.equal(true);
-    expect(
-      await fs.pathExists(path.join(v0AliasRoot, 'servers.json')),
     ).to.equal(true);
     expect(
       await fs.pathExists(
@@ -321,6 +314,47 @@ describe('registry-generator', () => {
         workspaceRoot,
         actionType: 'validate_registry',
         sourceDir: './empty-servers',
+        outputDir: './dist',
+        deploymentEnvironment: 'github',
+        schemasDir: path.join(workspaceRoot, 'schemas'),
+      });
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).to.be.instanceOf(Error);
+    expect(thrownError.message).to.equal('No valid servers found');
+  });
+
+  it('rejects legacy remotes.transportType in validate mode', async () => {
+    const versionPath = path.join(
+      workspaceRoot,
+      'servers',
+      'github',
+      'versions',
+      '1.0.0.json',
+    );
+
+    await fs.writeJson(
+      versionPath,
+      {
+        version: '1.0.0',
+        remotes: [
+          {
+            transportType: 'streamable-http',
+            url: 'https://example.com/mcp',
+          },
+        ],
+      },
+      { spaces: 2 },
+    );
+
+    let thrownError;
+    try {
+      await runRegistryGeneration({
+        workspaceRoot,
+        actionType: 'validate_registry',
+        sourceDir: './servers',
         outputDir: './dist',
         deploymentEnvironment: 'github',
         schemasDir: path.join(workspaceRoot, 'schemas'),

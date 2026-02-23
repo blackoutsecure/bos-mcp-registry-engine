@@ -62,8 +62,5 @@ describe('index generate run', () => {
     expect(
       await fs.pathExists(path.join(outputRoot, 'v0.1', 'servers.json')),
     ).to.equal(true);
-    expect(
-      await fs.pathExists(path.join(outputRoot, 'v0', 'servers.json')),
-    ).to.equal(true);
   });
 });
