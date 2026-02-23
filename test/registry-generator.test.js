@@ -2,6 +2,7 @@ const path = require('path');
 const { expect } = require('chai');
 const fs = require('fs-extra');
 const { runRegistryGeneration } = require('../src/lib/registry-generator');
+const { createLogger } = require('../src/lib/logger');
 const {
   cleanupWorkspace,
   createTempWorkspace,
@@ -169,6 +170,34 @@ describe('registry-generator', () => {
     expect(headers).to.contain('Access-Control-Max-Age: 86400');
   });
 
+  it('logs cloudflare profile file contents in debug mode', async () => {
+    const originalConsoleLog = console.log;
+    const capturedLogs = [];
+
+    console.log = (...args) => {
+      capturedLogs.push(args.join(' '));
+    };
+
+    try {
+      await runRegistryGeneration({
+        workspaceRoot,
+        sourceDir: './servers',
+        outputDir: './dist',
+        deploymentEnvironment: 'cloudflare',
+        schemasDir: path.join(workspaceRoot, 'schemas'),
+        logger: createLogger('debug'),
+      });
+    } finally {
+      console.log = originalConsoleLog;
+    }
+
+    const debugOutput = capturedLogs.join('\n');
+    expect(debugOutput).to.contain('[DEBUG] _headers');
+    expect(debugOutput).to.contain('X-Robots-Tag: noindex, nofollow');
+    expect(debugOutput).to.contain('[DEBUG] _redirects');
+    expect(debugOutput).to.contain('/v0.1/health /v0.1/health.json 302');
+  });
+
   it('defaults to lean cloudflare output when not explicitly configured', async () => {
     await runRegistryGeneration({
       workspaceRoot,
@@ -316,6 +345,37 @@ describe('registry-generator', () => {
     expect(await fs.pathExists(path.join(outputRoot, '.nojekyll'))).to.equal(
       false,
     );
+    expect(await fs.pathExists(path.join(outputRoot, 'index.html'))).to.equal(
+      true,
+    );
+  });
+
+  it('cleans output root before generation so output is authoritative', async () => {
+    const outputRoot = resolveOutputPath(workspaceRoot);
+    await fs.ensureDir(path.join(outputRoot, 'v0.1', 'servers', 'legacy'));
+    await fs.writeFile(path.join(outputRoot, 'stale.txt'), 'legacy', 'utf8');
+    await fs.writeFile(
+      path.join(outputRoot, 'v0.1', 'servers', 'legacy', 'old.json'),
+      '{"legacy":true}',
+      'utf8',
+    );
+
+    await runRegistryGeneration({
+      workspaceRoot,
+      sourceDir: './servers',
+      outputDir: './dist',
+      deploymentEnvironment: 'github',
+      schemasDir: path.join(workspaceRoot, 'schemas'),
+    });
+
+    expect(await fs.pathExists(path.join(outputRoot, 'stale.txt'))).to.equal(
+      false,
+    );
+    expect(
+      await fs.pathExists(
+        path.join(outputRoot, 'v0.1', 'servers', 'legacy', 'old.json'),
+      ),
+    ).to.equal(false);
     expect(await fs.pathExists(path.join(outputRoot, 'index.html'))).to.equal(
       true,
     );

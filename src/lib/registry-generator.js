@@ -504,6 +504,23 @@ function buildCloudflareLeanRedirects(registryVersion, servers) {
   return redirects;
 }
 
+async function logCloudflareProfileFilesForDebug(
+  logger,
+  { cloudflareHeadersPath, cloudflareRedirectsPath },
+) {
+  if (!logger || logger.level !== 'debug') {
+    return;
+  }
+
+  const [headersContent, redirectsContent] = await Promise.all([
+    fs.readFile(cloudflareHeadersPath, 'utf8'),
+    fs.readFile(cloudflareRedirectsPath, 'utf8'),
+  ]);
+
+  logger.debug(`_headers\n${headersContent}`);
+  logger.debug(`_redirects\n${redirectsContent}`);
+}
+
 async function generateRegistry({
   logger,
   outputRootDir,
@@ -518,6 +535,7 @@ async function generateRegistry({
     generatedFiles.add(filePath);
   };
 
+  await fs.emptyDir(outputRootDir);
   await fs.ensureDir(outputRootDir);
   await fs.ensureDir(registryOutputDir);
 
@@ -561,6 +579,10 @@ async function generateRegistry({
     trackGeneratedFile(cloudflareRedirectsPath);
     logger.info(`✓ Wrote ${cloudflareHeadersPath}`);
     logger.info(`✓ Wrote ${cloudflareRedirectsPath}`);
+    await logCloudflareProfileFilesForDebug(logger, {
+      cloudflareHeadersPath,
+      cloudflareRedirectsPath,
+    });
   }
   if (deploymentEnvironment === 'github') {
     trackGeneratedFile(noJekyllPath);
