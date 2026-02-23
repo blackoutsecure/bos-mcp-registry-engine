@@ -71,7 +71,7 @@ The table below is aligned with [action.yml](action.yml) inputs.
 | `output`                  | No       | `public`             | Registry public folder                  |
 | `deployment_environment`  | No       | `github`             | Hosting profile                         |
 | `config`                  | No       | _(none)_             | Registry config file                    |
-| `upload_artifacts`        | No       | `false`              | Upload generated registry as artifact   |
+| `upload_artifacts`        | No       | `true`               | Upload generated registry as artifact   |
 | `artifact_name`           | No       | `mcp-registry-files` | Artifact name when upload enabled       |
 | `artifact_retention_days` | No       | _(none)_             | Retention days (positive integer)       |
 | `server_slug`             | No       | _(none)_             | Server folder slug                      |
