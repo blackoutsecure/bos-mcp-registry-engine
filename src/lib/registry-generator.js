@@ -753,6 +753,7 @@ async function runRegistryGeneration(options = {}) {
     defaults.deploymentEnvironment;
   const cloudflareLeanOutput =
     options.cloudflareLeanOutput ?? defaults.cloudflareLeanOutput;
+  const actionType = options.actionType || 'generate_registry';
 
   assertValidDeploymentEnvironment(deploymentEnvironment);
 
@@ -772,34 +773,48 @@ async function runRegistryGeneration(options = {}) {
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
 
-  logger.info('🚀 Blackout Secure MCP Registry Engine\n');
+  logger.info('🚀 Blackout Secure MCP Registry Engine');
+  logger.info(`🧭 Action type: ${actionType}`);
   logger.info(`📁 Source servers path: ${sourceServersDir}`);
   logger.info(`📦 Output base path: ${outputBaseDir}`);
-  logger.info(`📦 Registry output root: ${outputRootDir}`);
-  logger.info(`🧾 Registry version path: ${registryOutputDir}\n`);
+  logger.info(`📂 Registry output root: ${outputRootDir}`);
+  logger.info(`🧾 Registry version path: ${registryOutputDir}`);
+
+  logger.debug('Startup configuration details', {
+    actionType,
+    sourceServersDir,
+    outputBaseDir,
+    publicDirectoryName,
+    outputRootDir,
+    registryOutputDir,
+    deploymentEnvironment,
+    cloudflareLeanOutput,
+    configFile,
+    workspaceRoot,
+  });
 
   const outputBaseName = path.basename(outputRootDir);
   if (outputBaseName === `v${registryVersion}`) {
     logger.warn(
-      `⚠ Output path appears to be a version directory (${outputRootDir}). Use an output base path (for example ./dist) so profile files and root index are generated correctly.\n`,
+      `⚠ Output path appears to be a version directory (${outputRootDir}). Use an output base path (for example ./dist) so profile files and root index are generated correctly.`,
     );
   }
 
   if (deploymentEnvironment === 'cloudflare') {
     logger.info(
-      '☁️ Deployment environment: cloudflare (_headers and _redirects will be generated)\n',
+      '☁️ Deployment environment: cloudflare (_headers and _redirects will be generated)',
     );
   }
 
   if (deploymentEnvironment === 'github') {
     logger.info(
-      '🐙 Deployment environment: github (.nojekyll will be generated for GitHub Pages)\n',
+      '🐙 Deployment environment: github (.nojekyll will be generated for GitHub Pages)',
     );
   }
 
   if (deploymentEnvironment === 'none') {
     logger.info(
-      '🧪 Deployment environment: none (host-agnostic static output; no platform profile files generated)\n',
+      '🧪 Deployment environment: none (host-agnostic static output; no platform profile files generated)',
     );
   }
 

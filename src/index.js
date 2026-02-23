@@ -38,10 +38,7 @@ async function run() {
     logger.info(
       `Running bos-mcp-registry-engine v${appVersion} (log level: ${logger.level})`,
     );
-    logger.info(
-      `Runtime config: action_type=${startupConfig.actionType}, source=${startupConfig.source}, output_directory=${startupConfig.output}, output=${startupConfig.publicDirectoryName}, deployment_environment=${startupConfig.deploymentEnvironment}, cloudflare_lean_output=${startupConfig.cloudflareLeanOutput}, config=${startupConfig.configFile || '(none)'}, log_level=${startupConfig.logLevel}, upload_artifacts=${startupConfig.uploadArtifacts}, artifact_name=${startupConfig.artifactName}, artifact_retention_days=${startupConfig.artifactRetentionDays}, commit_generated_artifacts=${startupConfig.commitGeneratedArtifacts}`,
-    );
-    logger.debug('Resolved runtime configuration', {
+    logger.debug('Runtime configuration', {
       ...startupConfig,
       artifactCommitterName: runtimeConfig.artifactCommitterName,
       artifactCommitterEmail: runtimeConfig.artifactCommitterEmail,
