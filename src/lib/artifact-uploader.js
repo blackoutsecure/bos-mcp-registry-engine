@@ -88,6 +88,18 @@ async function uploadArtifacts(options = {}) {
     return { uploaded: false, reason: 'no-files' };
   }
 
+  if (logger.level === 'debug') {
+    const relativeFiles = files
+      .map((filePath) => path.relative(outputRootDir, filePath).replace(/\\/g, '/'))
+      .sort();
+    logger.debug(
+      `Artifact upload file list (${relativeFiles.length} files) from ${outputRootDir}:`,
+    );
+    for (const relativeFile of relativeFiles) {
+      logger.debug(`- ${relativeFile}`);
+    }
+  }
+
   const client = artifactClient || resolveArtifactClient();
   if (!client || typeof client.uploadArtifact !== 'function') {
     logger.warn(

@@ -53,6 +53,9 @@ describe('index generate run', () => {
     expect(stdout).to.include(
       `Running bos-mcp-registry-engine v${version} (log level: info)`,
     );
+    expect(stdout).to.include(
+      'Runtime config: action_type=generate_registry, source=./servers, output_directory=./dist, output=public, deployment_environment=github',
+    );
 
     const outputRoot = resolveOutputPath(workspaceRoot);
     expect(await fs.pathExists(outputRoot)).to.equal(true);

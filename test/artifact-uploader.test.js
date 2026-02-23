@@ -79,4 +79,47 @@ describe('artifact-uploader', () => {
     });
     expect(captured.files).to.have.length(2);
   });
+
+  it('logs artifact file list in debug mode', async () => {
+    const outputRootDir = path.join(workspaceRoot, 'dist', 'public');
+    await fs.ensureDir(path.join(outputRootDir, 'v0.1'));
+    await fs.writeFile(
+      path.join(outputRootDir, 'index.html'),
+      '<html/>',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(outputRootDir, 'v0.1', 'servers.json'),
+      '{}',
+      'utf8',
+    );
+
+    const debugLogs = [];
+    const logger = {
+      level: 'debug',
+      debug: (...args) => debugLogs.push(args.join(' ')),
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    };
+
+    const mockArtifactClient = {
+      async uploadArtifact() {
+        return { id: 123, size: 456, digest: 'sha256:abc123' };
+      },
+    };
+
+    await uploadArtifacts({
+      logger,
+      enabled: true,
+      outputRootDir,
+      githubActions: true,
+      artifactClient: mockArtifactClient,
+    });
+
+    const output = debugLogs.join('\n');
+    expect(output).to.contain('Artifact upload file list (2 files)');
+    expect(output).to.contain('- index.html');
+    expect(output).to.contain('- v0.1/servers.json');
+  });
 });
