@@ -43,7 +43,7 @@ inputs:
   upload_artifacts:
     description: 'Upload generated registry output as a GitHub Actions artifact (generate_registry only)'
     required: false
-    default: 'false'
+    default: 'true'
   artifact_name:
     description: 'Artifact name used when upload_artifacts is enabled'
     required: false
