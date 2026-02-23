@@ -38,7 +38,10 @@ function resolveArtifactClient() {
     return new artifact.DefaultArtifactClient();
   }
 
-  if (artifact?.default && typeof artifact.default.uploadArtifact === 'function') {
+  if (
+    artifact?.default &&
+    typeof artifact.default.uploadArtifact === 'function'
+  ) {
     return artifact.default;
   }
 
@@ -71,19 +74,25 @@ async function uploadArtifacts(options = {}) {
   }
 
   if (!outputRootDir || !(await fs.pathExists(outputRootDir))) {
-    logger.warn(`⚠ Artifact upload skipped: output directory not found (${outputRootDir})`);
+    logger.warn(
+      `⚠ Artifact upload skipped: output directory not found (${outputRootDir})`,
+    );
     return { uploaded: false, reason: 'missing-output-directory' };
   }
 
   const files = await collectFiles(outputRootDir);
   if (files.length === 0) {
-    logger.info(`ℹ️ Artifact upload skipped: no files found in ${outputRootDir}`);
+    logger.info(
+      `ℹ️ Artifact upload skipped: no files found in ${outputRootDir}`,
+    );
     return { uploaded: false, reason: 'no-files' };
   }
 
   const client = artifactClient || resolveArtifactClient();
   if (!client || typeof client.uploadArtifact !== 'function') {
-    logger.warn('⚠ Artifact upload skipped: @actions/artifact client unavailable');
+    logger.warn(
+      '⚠ Artifact upload skipped: @actions/artifact client unavailable',
+    );
     return { uploaded: false, reason: 'artifact-client-unavailable' };
   }
 

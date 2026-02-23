@@ -271,6 +271,28 @@ describe('registry-generator', () => {
     expect(serversJson.servers).to.be.an('array').with.length(0);
   });
 
+  it('creates missing source directory and generates empty registry', async () => {
+    const missingServersDir = path.join(workspaceRoot, 'missing-servers');
+
+    await runRegistryGeneration({
+      workspaceRoot,
+      actionType: 'generate_registry',
+      sourceDir: './missing-servers',
+      outputDir: './dist',
+      deploymentEnvironment: 'github',
+      schemasDir: path.join(workspaceRoot, 'schemas'),
+    });
+
+    expect(await fs.pathExists(missingServersDir)).to.equal(true);
+
+    const outputRoot = resolveOutputPath(workspaceRoot);
+    const serversJsonPath = path.join(outputRoot, 'v0.1', 'servers.json');
+    expect(await fs.pathExists(serversJsonPath)).to.equal(true);
+
+    const serversJson = await fs.readJson(serversJsonPath);
+    expect(serversJson.servers).to.be.an('array').with.length(0);
+  });
+
   it('fails validation when source has no valid servers', async () => {
     const emptyServersDir = path.join(workspaceRoot, 'empty-servers');
     await fs.ensureDir(emptyServersDir);

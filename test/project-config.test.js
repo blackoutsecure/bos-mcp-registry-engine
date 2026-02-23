@@ -292,6 +292,7 @@ describe('project-config', () => {
           upload_artifacts: 'true',
           artifact_name: 'registry-release-files',
           artifact_retention_days: '5',
+          commit_generated_artifacts: 'false',
         };
 
         return values[name] || '';
@@ -303,14 +304,50 @@ describe('project-config', () => {
     expect(config.uploadArtifacts).to.equal(true);
     expect(config.artifactName).to.equal('registry-release-files');
     expect(config.artifactRetentionDays).to.equal(5);
+    expect(config.commitGeneratedArtifacts).to.equal(false);
   });
 
   it('uses artifact upload defaults when not provided', () => {
     const config = getRuntimeConfig(core, [], { GITHUB_ACTIONS: 'true' });
 
-    expect(config.uploadArtifacts).to.equal(false);
+    expect(config.uploadArtifacts).to.equal(true);
     expect(config.artifactName).to.equal('mcp-registry-files');
-    expect(config.artifactRetentionDays).to.equal(undefined);
+    expect(config.artifactRetentionDays).to.equal(1);
+    expect(config.commitGeneratedArtifacts).to.equal(true);
+    expect(config.artifactCommitterName).to.equal('github-actions[bot]');
+    expect(config.artifactCommitterEmail).to.equal(
+      '41898282+github-actions[bot]@users.noreply.github.com',
+    );
+  });
+
+  it('supports committer env overrides', () => {
+    const config = getRuntimeConfig(core, [], {
+      GITHUB_ACTIONS: 'true',
+      MCP_REGISTRY_ARTIFACT_COMMITTER_NAME: 'registry-bot',
+      MCP_REGISTRY_ARTIFACT_COMMITTER_EMAIL: 'registry-bot@example.com',
+    });
+
+    expect(config.artifactCommitterName).to.equal('registry-bot');
+    expect(config.artifactCommitterEmail).to.equal('registry-bot@example.com');
+  });
+
+  it('supports committer overrides from GitHub Action inputs', () => {
+    const actionCore = {
+      getInput(name) {
+        const values = {
+          action_type: 'generate_registry',
+          artifact_committer_name: 'custom-bot',
+          artifact_committer_email: 'custom-bot@example.com',
+        };
+
+        return values[name] || '';
+      },
+    };
+
+    const config = getRuntimeConfig(actionCore, [], { GITHUB_ACTIONS: 'true' });
+
+    expect(config.artifactCommitterName).to.equal('custom-bot');
+    expect(config.artifactCommitterEmail).to.equal('custom-bot@example.com');
   });
 
   it('fails for invalid artifact retention days', () => {
@@ -330,5 +367,46 @@ describe('project-config', () => {
         { GITHUB_ACTIONS: 'true' },
       ),
     ).to.throw('Invalid artifact retention days');
+  });
+
+  it('fails when artifact retention days exceed supported maximum', () => {
+    expect(() =>
+      getRuntimeConfig(
+        {
+          getInput(name) {
+            const values = {
+              action_type: 'generate_registry',
+              artifact_retention_days: '401',
+            };
+
+            return values[name] || '';
+          },
+        },
+        [],
+        { GITHUB_ACTIONS: 'true' },
+      ),
+    ).to.throw('Invalid artifact retention days');
+  });
+
+  it('fails when commit_generated_artifacts is enabled and upload_artifacts is disabled', () => {
+    expect(() =>
+      getRuntimeConfig(
+        {
+          getInput(name) {
+            const values = {
+              action_type: 'generate_registry',
+              upload_artifacts: 'false',
+              commit_generated_artifacts: 'true',
+            };
+
+            return values[name] || '';
+          },
+        },
+        [],
+        { GITHUB_ACTIONS: 'true' },
+      ),
+    ).to.throw(
+      'Invalid configuration: commit_generated_artifacts requires upload_artifacts=true for generate_registry.',
+    );
   });
 });

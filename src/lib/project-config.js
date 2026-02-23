@@ -39,9 +39,13 @@ const PROJECT_CONFIG = {
       registryVersion: '0.1',
       externalRepositories: [],
       deploymentEnvironment: 'github',
-      uploadArtifacts: false,
+      uploadArtifacts: true,
       artifactName: 'mcp-registry-files',
-      artifactRetentionDays: undefined,
+      artifactRetentionDays: 1,
+      commitGeneratedArtifacts: true,
+      artifactCommitterName: 'github-actions[bot]',
+      artifactCommitterEmail:
+        '41898282+github-actions[bot]@users.noreply.github.com',
     },
     env: {
       actionType: 'MCP_REGISTRY_ACTION_TYPE',
@@ -55,6 +59,9 @@ const PROJECT_CONFIG = {
       uploadArtifacts: 'MCP_REGISTRY_UPLOAD_ARTIFACTS',
       artifactName: 'MCP_REGISTRY_ARTIFACT_NAME',
       artifactRetentionDays: 'MCP_REGISTRY_ARTIFACT_RETENTION_DAYS',
+      commitGeneratedArtifacts: 'MCP_REGISTRY_COMMIT_GENERATED_ARTIFACTS',
+      artifactCommitterName: 'MCP_REGISTRY_ARTIFACT_COMMITTER_NAME',
+      artifactCommitterEmail: 'MCP_REGISTRY_ARTIFACT_COMMITTER_EMAIL',
       serverSlug: 'MCP_SERVER_SLUG',
       serverName: 'MCP_SERVER_NAME',
       serverTitle: 'MCP_SERVER_TITLE',
@@ -80,6 +87,9 @@ const PROJECT_CONFIG = {
       uploadArtifacts: 'upload_artifacts',
       artifactName: 'artifact_name',
       artifactRetentionDays: 'artifact_retention_days',
+      commitGeneratedArtifacts: 'commit_generated_artifacts',
+      artifactCommitterName: 'artifact_committer_name',
+      artifactCommitterEmail: 'artifact_committer_email',
       serverSlug: 'server_slug',
       serverName: 'server_name',
       serverTitle: 'server_title',
@@ -166,7 +176,9 @@ function normalizeActionPublicDirectory(value, defaults) {
   }
 
   if (normalizedValue.startsWith(outputPrefix)) {
-    return normalizedValue.slice(outputPrefix.length) || defaults.publicDirectoryName;
+    return (
+      normalizedValue.slice(outputPrefix.length) || defaults.publicDirectoryName
+    );
   }
 
   return normalizedValue;
@@ -199,9 +211,9 @@ function normalizeArtifactRetentionDays(value) {
   }
 
   const parsed = Number.parseInt(String(value).trim(), 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 400) {
     throw new Error(
-      `Invalid artifact retention days: ${value}. Provide a positive integer.`,
+      `Invalid artifact retention days: ${value}. Provide an integer between 1 and 400 (subject to GitHub/org retention policy).`,
     );
   }
 
@@ -310,12 +322,54 @@ function getRuntimeConfig(
       ? String(artifactNameRaw).trim()
       : defaults.artifactName;
 
-  const artifactRetentionDays = normalizeArtifactRetentionDays(
-    isGitHubActionRuntime
-      ? core.getInput(inputs.artifactRetentionDays) ||
-          env[envKeys.artifactRetentionDays]
-      : env[envKeys.artifactRetentionDays],
-  );
+  const artifactRetentionDays =
+    normalizeArtifactRetentionDays(
+      isGitHubActionRuntime
+        ? core.getInput(inputs.artifactRetentionDays) ||
+            env[envKeys.artifactRetentionDays]
+        : env[envKeys.artifactRetentionDays],
+    ) ?? defaults.artifactRetentionDays;
+
+  const commitGeneratedArtifacts = isGitHubActionRuntime
+    ? parseBoolean(
+        core.getInput(inputs.commitGeneratedArtifacts) ||
+          env[envKeys.commitGeneratedArtifacts],
+        defaults.commitGeneratedArtifacts,
+      )
+    : parseBoolean(
+        env[envKeys.commitGeneratedArtifacts],
+        defaults.commitGeneratedArtifacts,
+      );
+
+  if (
+    actionType === 'generate_registry' &&
+    commitGeneratedArtifacts &&
+    !uploadArtifacts
+  ) {
+    throw new Error(
+      'Invalid configuration: commit_generated_artifacts requires upload_artifacts=true for generate_registry.',
+    );
+  }
+
+  const artifactCommitterNameRaw = isGitHubActionRuntime
+    ? core.getInput(inputs.artifactCommitterName) ||
+      env[envKeys.artifactCommitterName]
+    : env[envKeys.artifactCommitterName];
+
+  const artifactCommitterEmailRaw = isGitHubActionRuntime
+    ? core.getInput(inputs.artifactCommitterEmail) ||
+      env[envKeys.artifactCommitterEmail]
+    : env[envKeys.artifactCommitterEmail];
+
+  const artifactCommitterName =
+    artifactCommitterNameRaw && String(artifactCommitterNameRaw).trim()
+      ? String(artifactCommitterNameRaw).trim()
+      : defaults.artifactCommitterName;
+
+  const artifactCommitterEmail =
+    artifactCommitterEmailRaw && String(artifactCommitterEmailRaw).trim()
+      ? String(artifactCommitterEmailRaw).trim()
+      : defaults.artifactCommitterEmail;
 
   const readOptional = (inputName, envName, cliValue) => {
     if (isGitHubActionRuntime) {
@@ -412,6 +466,9 @@ function getRuntimeConfig(
     uploadArtifacts,
     artifactName,
     artifactRetentionDays,
+    commitGeneratedArtifacts,
+    artifactCommitterName,
+    artifactCommitterEmail,
     serverManifest,
   };
 }

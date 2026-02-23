@@ -40,8 +40,16 @@ describe('artifact-uploader', () => {
   it('uploads generated files with provided artifact settings', async () => {
     const outputRootDir = path.join(workspaceRoot, 'dist', 'public');
     await fs.ensureDir(path.join(outputRootDir, 'v0.1'));
-    await fs.writeFile(path.join(outputRootDir, 'index.html'), '<html/>', 'utf8');
-    await fs.writeFile(path.join(outputRootDir, 'v0.1', 'servers.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(outputRootDir, 'index.html'),
+      '<html/>',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(outputRootDir, 'v0.1', 'servers.json'),
+      '{}',
+      'utf8',
+    );
 
     let captured = null;
     const mockArtifactClient = {

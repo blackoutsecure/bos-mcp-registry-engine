@@ -13,6 +13,7 @@ const {
 } = require('./lib/server-manifest');
 const { createLogger } = require('./lib/logger');
 const { uploadArtifacts } = require('./lib/artifact-uploader');
+const { commitGeneratedArtifacts } = require('./lib/repo-artifact-committer');
 
 async function run() {
   try {
@@ -29,6 +30,9 @@ async function run() {
       uploadArtifacts: runtimeConfig.uploadArtifacts,
       artifactName: runtimeConfig.artifactName,
       artifactRetentionDays: runtimeConfig.artifactRetentionDays,
+      commitGeneratedArtifacts: runtimeConfig.commitGeneratedArtifacts,
+      artifactCommitterName: runtimeConfig.artifactCommitterName,
+      artifactCommitterEmail: runtimeConfig.artifactCommitterEmail,
     });
 
     if (
@@ -48,6 +52,14 @@ async function run() {
       });
 
       if (runtimeConfig.actionType === 'generate_registry') {
+        await commitGeneratedArtifacts({
+          logger,
+          enabled: runtimeConfig.commitGeneratedArtifacts,
+          outputRootDir: result.outputRootDir,
+          committerName: runtimeConfig.artifactCommitterName,
+          committerEmail: runtimeConfig.artifactCommitterEmail,
+        });
+
         await uploadArtifacts({
           logger,
           enabled: runtimeConfig.uploadArtifacts,
