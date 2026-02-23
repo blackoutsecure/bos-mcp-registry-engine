@@ -38611,8 +38611,14 @@ async function runRegistryGeneration(options = {}) {
     logger,
   );
 
-  if (servers.length === 0) {
+  if (servers.length === 0 && options.actionType === 'validate_registry') {
     throw new Error('No valid servers found');
+  }
+
+  if (servers.length === 0 && options.actionType === 'generate_registry') {
+    logger.warn(
+      '⚠ No valid servers found. Generating an empty registry output.',
+    );
   }
 
   if (options.actionType === 'validate_registry') {
