@@ -53,7 +53,7 @@ The generator must:
 - Generate static versioned registry artifacts under `dist/<output>/v0.1` (Action runtime)
 - Generate hosting profile files:
   - `deployment_environment=github` → `.nojekyll`
-  - `deployment_environment=cloudflare` → `_headers` and `_redirects`
+  - `deployment_environment=cloudflare` → `_headers` and `_redirects` (security/CORS policy + redirect aliases)
   - `deployment_environment=none` → no hosting profile files (host-agnostic static output)
 - Action-type behavior:
   - `generate_registry`: validate manifests then generate artifacts; if source has no valid servers, generate empty registry output
@@ -71,6 +71,7 @@ The generator must:
   - `output_directory` (default `dist`; action runtime base output directory)
   - `output` (default `public`; action runtime resolves to `<output_directory>/<output>`)
   - `deployment_environment` (default `github`; supported: `github`, `cloudflare`, `none`)
+  - `cloudflare_lean_output` (default `true`; when enabled with `deployment_environment=cloudflare`, emits JSON-only lean output and uses `_redirects` aliases)
   - `config` (optional custom config file path)
   - server-manifest inputs (used for `generate_server_manifest`/`validate_server_manifest`):
     - `server_slug`
@@ -91,6 +92,8 @@ Notes:
 
 - Do not reintroduce removed legacy contracts (`public_directory`, `external_repositories` action input, `--validate-only`, or legacy action aliases `generate`/`validate`).
 - Keep logging routed through the logger utility and honor `log_level` filtering.
+- For Cloudflare output, prefer lean JSON-only artifacts (no extensionless duplicate files) and preserve compatibility through `_redirects` aliases.
+- For Cloudflare output, keep CORS explicit for read-only API access (`GET`, `HEAD`, `OPTIONS`) and maintain strict security headers in `_headers`.
 
 ## Static-only limitations
 

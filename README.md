@@ -1,7 +1,7 @@
 # Blackout Secure MCP Registry Engine
 
 [![GitHub Marketplace](https://img.shields.io/badge/GitHub%20Marketplace-Action-blue?logo=github)](https://github.com/marketplace/actions/blackout-secure-mcp-registry-engine)
-[![GitHub release](https://img.shields.io/github/v/release/blackoutsecure/bos-mcp-registry-engine?sort=semver)](https://github.com/blackoutsecure/bos-mcp-registry-engine/releases)
+[![GitHub release](https://img.shields.io/github/v/tag/blackoutsecure/bos-mcp-registry-engine?sort=semver)](https://github.com/blackoutsecure/bos-mcp-registry-engine/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
 Static MCP registry generator and GitHub Marketplace Action for producing host-agnostic registry artifacts.
@@ -78,6 +78,7 @@ The table below is aligned with [action.yml](action.yml) inputs.
 | `output_directory`        | No       | `dist`               | Base output directory path            |
 | `output`                  | No       | `public`             | Registry public folder                |
 | `deployment_environment`  | No       | `github`             | Hosting profile                       |
+| `cloudflare_lean_output`  | No       | `true`               | Cloudflare JSON-only lean output      |
 | `config`                  | No       | _(none)_             | Registry config file                  |
 | `upload_artifacts`        | No       | `true`               | Upload generated registry as artifact |
 | `artifact_name`           | No       | `mcp-registry-files` | Artifact name when upload enabled     |
@@ -100,7 +101,8 @@ Input details:
 
 - `action_type`: `generate_registry`, `validate_registry`, `generate_server_manifest`, `validate_server_manifest`.
 - `log_level`: `debug`, `info`, `warn`, `error`.
-- `output_directory`, `output`, and `deployment_environment` apply to registry actions.
+- `output_directory`, `output`, `deployment_environment`, and `cloudflare_lean_output` apply to registry actions.
+- `cloudflare_lean_output` is only applied when `deployment_environment=cloudflare`; default `true` emits JSON files and relies on `_redirects` for extensionless aliases.
 - If the configured `source` directory does not exist, `generate_registry` creates an empty source directory and generates an empty registry output (instead of crashing).
 - `upload_artifacts`, `artifact_name`, `artifact_retention_days`, `commit_generated_artifacts`, `artifact_committer_name`, and `artifact_committer_email` apply to `generate_registry` only.
 - `commit_generated_artifacts`: defaults to `true`; stages, commits, and pushes generated output from the checked-out repository workspace; requires `upload_artifacts=true`.
@@ -122,6 +124,7 @@ Input details:
 | `output_directory`        | Optional          | Optional          | N/A                      | N/A                      |
 | `output`                  | Optional          | Optional          | N/A                      | N/A                      |
 | `deployment_environment`  | Optional          | Optional          | N/A                      | N/A                      |
+| `cloudflare_lean_output`  | Optional          | Optional          | N/A                      | N/A                      |
 | `config`                  | Optional          | Optional          | N/A                      | N/A                      |
 | `upload_artifacts`        | Optional          | N/A               | N/A                      | N/A                      |
 | `artifact_name`           | Optional          | N/A               | N/A                      | N/A                      |

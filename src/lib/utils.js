@@ -43,6 +43,7 @@ function parseCliArgs(argv = process.argv.slice(2)) {
     output: undefined,
     publicDirectory: undefined,
     deploymentEnvironment: undefined,
+    cloudflareLeanOutput: undefined,
     configFile: undefined,
     serverSlug: undefined,
     serverName: undefined,
@@ -95,6 +96,12 @@ function parseCliArgs(argv = process.argv.slice(2)) {
 
     if (arg === '--deployment-environment' && nextArg) {
       result.deploymentEnvironment = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--cloudflare-lean-output' && nextArg) {
+      result.cloudflareLeanOutput = nextArg;
       index += 1;
       continue;
     }

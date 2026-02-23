@@ -154,6 +154,36 @@ describe('project-config', () => {
     expect(config.deploymentEnvironment).to.equal('none');
   });
 
+  it('supports cloudflare lean output from cli', () => {
+    const config = getRuntimeConfig(
+      core,
+      ['--cloudflare-lean-output', 'true'],
+      {
+        GITHUB_ACTIONS: 'false',
+      },
+    );
+
+    expect(config.cloudflareLeanOutput).to.equal(true);
+  });
+
+  it('supports cloudflare lean output from action input', () => {
+    const actionCore = {
+      getInput(name) {
+        const values = {
+          cloudflare_lean_output: 'true',
+        };
+
+        return values[name] || '';
+      },
+    };
+
+    const config = getRuntimeConfig(actionCore, [], {
+      GITHUB_ACTIONS: 'true',
+    });
+
+    expect(config.cloudflareLeanOutput).to.equal(true);
+  });
+
   it('supports public directory override from cli', () => {
     const config = getRuntimeConfig(core, ['--public-directory', 'site'], {
       GITHUB_ACTIONS: 'false',
@@ -311,6 +341,7 @@ describe('project-config', () => {
     const config = getRuntimeConfig(core, [], { GITHUB_ACTIONS: 'true' });
 
     expect(config.uploadArtifacts).to.equal(true);
+    expect(config.cloudflareLeanOutput).to.equal(true);
     expect(config.artifactName).to.equal('mcp-registry-files');
     expect(config.artifactRetentionDays).to.equal(1);
     expect(config.commitGeneratedArtifacts).to.equal(true);

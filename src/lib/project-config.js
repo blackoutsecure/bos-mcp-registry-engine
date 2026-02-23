@@ -39,6 +39,7 @@ const PROJECT_CONFIG = {
       registryVersion: '0.1',
       externalRepositories: [],
       deploymentEnvironment: 'github',
+      cloudflareLeanOutput: true,
       uploadArtifacts: true,
       artifactName: 'mcp-registry-files',
       artifactRetentionDays: 1,
@@ -54,6 +55,7 @@ const PROJECT_CONFIG = {
       output: 'REGISTRY_DIR',
       publicDirectory: 'MCP_REGISTRY_PUBLIC_DIR',
       deploymentEnvironment: 'DEPLOYMENT_ENVIRONMENT',
+      cloudflareLeanOutput: 'MCP_REGISTRY_CLOUDFLARE_LEAN_OUTPUT',
       configFile: 'MCP_REGISTRY_CONFIG',
       externalRepositories: 'MCP_REGISTRY_EXTERNAL_REPOSITORIES',
       uploadArtifacts: 'MCP_REGISTRY_UPLOAD_ARTIFACTS',
@@ -83,6 +85,7 @@ const PROJECT_CONFIG = {
       output: 'output',
       outputDirectory: 'output_directory',
       deploymentEnvironment: 'deployment_environment',
+      cloudflareLeanOutput: 'cloudflare_lean_output',
       configFile: 'config',
       uploadArtifacts: 'upload_artifacts',
       artifactName: 'artifact_name',
@@ -235,6 +238,7 @@ function getRuntimeConfig(
   const outputEnv = env[envKeys.output];
   const publicDirectoryEnv = env[envKeys.publicDirectory];
   const deploymentEnvironmentEnv = env[envKeys.deploymentEnvironment];
+  const cloudflareLeanOutputEnv = env[envKeys.cloudflareLeanOutput];
   const configFileEnv = env[envKeys.configFile];
   const externalRepositoriesEnv = env[envKeys.externalRepositories];
 
@@ -295,6 +299,16 @@ function getRuntimeConfig(
       );
 
   assertValidDeploymentEnvironment(deploymentEnvironment);
+
+  const cloudflareLeanOutput = isGitHubActionRuntime
+    ? parseBoolean(
+        core.getInput(inputs.cloudflareLeanOutput) || cloudflareLeanOutputEnv,
+        defaults.cloudflareLeanOutput,
+      )
+    : parseBoolean(
+        cliArgs.cloudflareLeanOutput || cloudflareLeanOutputEnv,
+        defaults.cloudflareLeanOutput,
+      );
 
   const configFile = isGitHubActionRuntime
     ? core.getInput(inputs.configFile) || configFileEnv
@@ -461,6 +475,7 @@ function getRuntimeConfig(
     publicDirectoryName,
     registryVersion: defaults.registryVersion,
     deploymentEnvironment,
+    cloudflareLeanOutput,
     configFile,
     externalRepositories,
     uploadArtifacts,

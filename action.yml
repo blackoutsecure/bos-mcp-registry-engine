@@ -37,6 +37,10 @@ inputs:
     description: 'Deployment environment profile (github for GitHub Pages, cloudflare for Cloudflare Pages/Workers, none for host-agnostic static output)'
     required: false
     default: 'github'
+  cloudflare_lean_output:
+    description: 'When deployment_environment=cloudflare, generate lean output by emitting JSON files and using _redirects for extensionless aliases'
+    required: false
+    default: 'true'
   config:
     description: 'Optional path to custom registry config file (supports version and externalRepositories)'
     required: false

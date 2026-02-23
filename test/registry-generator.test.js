@@ -162,6 +162,109 @@ describe('registry-generator', () => {
     expect(await fs.pathExists(path.join(outputRoot, '_redirects'))).to.equal(
       true,
     );
+
+    const headers = await fs.readFile(path.join(outputRoot, '_headers'), 'utf8');
+    expect(headers).to.contain('X-Robots-Tag: noindex, nofollow');
+    expect(headers).to.contain('Access-Control-Expose-Headers: ETag, Last-Modified, Cache-Control, Content-Length, Content-Type');
+    expect(headers).to.contain('Access-Control-Max-Age: 86400');
+  });
+
+  it('defaults to lean cloudflare output when not explicitly configured', async () => {
+    await runRegistryGeneration({
+      workspaceRoot,
+      sourceDir: './servers',
+      outputDir: './dist',
+      deploymentEnvironment: 'cloudflare',
+      schemasDir: path.join(workspaceRoot, 'schemas'),
+    });
+
+    const outputRoot = resolveOutputPath(workspaceRoot);
+    const versionRoot = path.join(outputRoot, 'v0.1');
+
+    expect(await fs.pathExists(path.join(versionRoot, 'health.json'))).to.equal(
+      true,
+    );
+    expect(await fs.pathExists(path.join(versionRoot, 'health'))).to.equal(
+      false,
+    );
+  });
+
+  it('generates lean cloudflare output when enabled', async () => {
+    await runRegistryGeneration({
+      workspaceRoot,
+      sourceDir: './servers',
+      outputDir: './dist',
+      deploymentEnvironment: 'cloudflare',
+      cloudflareLeanOutput: true,
+      schemasDir: path.join(workspaceRoot, 'schemas'),
+    });
+
+    const outputRoot = resolveOutputPath(workspaceRoot);
+    const versionRoot = path.join(outputRoot, 'v0.1');
+
+    expect(await fs.pathExists(path.join(versionRoot, 'health.json'))).to.equal(
+      true,
+    );
+    expect(await fs.pathExists(path.join(versionRoot, 'health'))).to.equal(
+      false,
+    );
+
+    expect(await fs.pathExists(path.join(versionRoot, 'ping.json'))).to.equal(
+      true,
+    );
+    expect(await fs.pathExists(path.join(versionRoot, 'ping'))).to.equal(false);
+
+    expect(await fs.pathExists(path.join(versionRoot, 'version.json'))).to.equal(
+      true,
+    );
+    expect(await fs.pathExists(path.join(versionRoot, 'version'))).to.equal(
+      false,
+    );
+
+    expect(
+      await fs.pathExists(
+        path.join(
+          versionRoot,
+          'servers',
+          encodedServerName,
+          'versions',
+          '1.0.0.json',
+        ),
+      ),
+    ).to.equal(true);
+    expect(
+      await fs.pathExists(
+        path.join(versionRoot, 'servers', encodedServerName, 'versions', '1.0.0'),
+      ),
+    ).to.equal(false);
+
+    expect(
+      await fs.pathExists(
+        path.join(
+          versionRoot,
+          'servers',
+          encodedServerName,
+          'versions',
+          'latest.json',
+        ),
+      ),
+    ).to.equal(true);
+    expect(
+      await fs.pathExists(
+        path.join(versionRoot, 'servers', encodedServerName, 'versions', 'latest'),
+      ),
+    ).to.equal(false);
+
+    const redirects = await fs.readFile(path.join(outputRoot, '_redirects'), 'utf8');
+    expect(redirects).to.contain('/v0.1/health /v0.1/health.json 302');
+    expect(redirects).to.contain('/v0.1/ping /v0.1/ping.json 302');
+    expect(redirects).to.contain('/v0.1/version /v0.1/version.json 302');
+    expect(redirects).to.contain(
+      `/v0.1/servers/${encodedServerName}/versions/latest /v0.1/servers/${encodedServerName}/versions/latest.json 302`,
+    );
+    expect(redirects).to.contain(
+      `/v0.1/servers/${encodedServerName}/versions/1.0.0 /v0.1/servers/${encodedServerName}/versions/1.0.0.json 302`,
+    );
   });
 
   it('removes cloudflare files when disabled', async () => {

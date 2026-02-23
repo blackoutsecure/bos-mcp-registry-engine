@@ -29,6 +29,7 @@ async function run() {
       output: runtimeConfig.output,
       publicDirectoryName: runtimeConfig.publicDirectoryName,
       deploymentEnvironment: runtimeConfig.deploymentEnvironment,
+      cloudflareLeanOutput: runtimeConfig.cloudflareLeanOutput,
       configFile: runtimeConfig.configFile,
       logLevel: runtimeConfig.logLevel,
       uploadArtifacts: runtimeConfig.uploadArtifacts,
@@ -51,6 +52,7 @@ async function run() {
         publicDirectoryName: runtimeConfig.publicDirectoryName,
         registryVersion: runtimeConfig.registryVersion,
         deploymentEnvironment: runtimeConfig.deploymentEnvironment,
+        cloudflareLeanOutput: runtimeConfig.cloudflareLeanOutput,
         configFile: runtimeConfig.configFile,
         externalRepositories: runtimeConfig.externalRepositories,
       });

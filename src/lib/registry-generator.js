@@ -476,12 +476,41 @@ async function writeApiCompatJson(basePath, data) {
   ]);
 }
 
+async function writeApiJson(basePath, data, writeExtensionless = true) {
+  if (writeExtensionless) {
+    await writeApiCompatJson(basePath, data);
+    return;
+  }
+
+  await writeJsonFile(`${basePath}.json`, data);
+}
+
+function buildCloudflareLeanRedirects(registryVersion, servers) {
+  const redirects = [];
+
+  for (const server of servers) {
+    const encodedName = encodeServerNameForPath(server.name);
+    redirects.push(
+      `/v${registryVersion}/servers/${encodedName}/versions/latest /v${registryVersion}/servers/${encodedName}/versions/latest.json 302`,
+    );
+
+    for (const version of server.versions) {
+      redirects.push(
+        `/v${registryVersion}/servers/${encodedName}/versions/${version.version} /v${registryVersion}/servers/${encodedName}/versions/${version.version}.json 302`,
+      );
+    }
+  }
+
+  return redirects;
+}
+
 async function generateRegistry({
   logger,
   outputRootDir,
   registryOutputDir,
   registryVersion,
   deploymentEnvironment,
+  cloudflareLeanOutput,
   servers,
 }) {
   const generatedFiles = new Set();
@@ -493,6 +522,12 @@ async function generateRegistry({
   await fs.ensureDir(registryOutputDir);
 
   const generatedAt = new Date().toISOString();
+  const useCloudflareLeanOutput =
+    deploymentEnvironment === 'cloudflare' && cloudflareLeanOutput;
+
+  const additionalCloudflareRedirects = useCloudflareLeanOutput
+    ? buildCloudflareLeanRedirects(registryVersion, servers)
+    : [];
 
   const rootIndexPath = path.join(outputRootDir, 'index.html');
   const versionIndexPath = path.join(registryOutputDir, 'index.html');
@@ -515,6 +550,8 @@ async function generateRegistry({
       outputRootDir,
       registryVersion,
       deploymentEnvironment,
+      cloudflareLeanOutput: useCloudflareLeanOutput,
+      additionalCloudflareRedirects,
     });
 
   logger.info(`✓ Wrote ${rootIndexPath}`);
@@ -558,26 +595,44 @@ async function generateRegistry({
   trackGeneratedFile(serversJsonPath);
 
   const healthBasePath = path.join(registryOutputDir, 'health');
-  await writeApiCompatJson(healthBasePath, {
+  await writeApiJson(
+    healthBasePath,
+    {
     status: 'ok',
-  });
+    },
+    !useCloudflareLeanOutput,
+  );
   trackGeneratedFile(`${healthBasePath}.json`);
-  trackGeneratedFile(healthBasePath);
+  if (!useCloudflareLeanOutput) {
+    trackGeneratedFile(healthBasePath);
+  }
 
   const pingBasePath = path.join(registryOutputDir, 'ping');
-  await writeApiCompatJson(pingBasePath, {
+  await writeApiJson(
+    pingBasePath,
+    {
     status: 'ok',
-  });
+    },
+    !useCloudflareLeanOutput,
+  );
   trackGeneratedFile(`${pingBasePath}.json`);
-  trackGeneratedFile(pingBasePath);
+  if (!useCloudflareLeanOutput) {
+    trackGeneratedFile(pingBasePath);
+  }
 
   const versionBasePath = path.join(registryOutputDir, 'version');
-  await writeApiCompatJson(versionBasePath, {
-    version: registryVersion,
-    generatedAt,
-  });
+  await writeApiJson(
+    versionBasePath,
+    {
+      version: registryVersion,
+      generatedAt,
+    },
+    !useCloudflareLeanOutput,
+  );
   trackGeneratedFile(`${versionBasePath}.json`);
-  trackGeneratedFile(versionBasePath);
+  if (!useCloudflareLeanOutput) {
+    trackGeneratedFile(versionBasePath);
+  }
 
   await fs.ensureDir(path.join(registryOutputDir, 'servers'));
   const serversIndexJsonPath = path.join(
@@ -623,9 +678,11 @@ async function generateRegistry({
         updatedAt,
       });
       const versionBasePath = path.join(versionsDir, version.version);
-      await writeApiCompatJson(versionBasePath, versionPayload);
+      await writeApiJson(versionBasePath, versionPayload, !useCloudflareLeanOutput);
       trackGeneratedFile(`${versionBasePath}.json`);
-      trackGeneratedFile(versionBasePath);
+      if (!useCloudflareLeanOutput) {
+        trackGeneratedFile(versionBasePath);
+      }
     }
 
     const latestPayload = buildServerResponse({
@@ -636,9 +693,11 @@ async function generateRegistry({
       updatedAt,
     });
     const latestBasePath = path.join(versionsDir, 'latest');
-    await writeApiCompatJson(latestBasePath, latestPayload);
+    await writeApiJson(latestBasePath, latestPayload, !useCloudflareLeanOutput);
     trackGeneratedFile(`${latestBasePath}.json`);
-    trackGeneratedFile(latestBasePath);
+    if (!useCloudflareLeanOutput) {
+      trackGeneratedFile(latestBasePath);
+    }
   }
 
   return Array.from(generatedFiles);
@@ -670,6 +729,8 @@ async function runRegistryGeneration(options = {}) {
     options.deploymentEnvironment ||
     process.env[envKeys.deploymentEnvironment] ||
     defaults.deploymentEnvironment;
+  const cloudflareLeanOutput =
+    options.cloudflareLeanOutput ?? defaults.cloudflareLeanOutput;
 
   assertValidDeploymentEnvironment(deploymentEnvironment);
 
@@ -763,6 +824,7 @@ async function runRegistryGeneration(options = {}) {
     registryOutputDir,
     registryVersion,
     deploymentEnvironment,
+    cloudflareLeanOutput,
     servers,
   });
   const generatedFiles = Array.from(new Set(generatedRegistryFiles)).sort();
