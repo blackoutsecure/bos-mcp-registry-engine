@@ -10,7 +10,7 @@
  * are centralized here for consistency.
  */
 
-const { parseCliArgs } = require('./utils');
+const { parseBoolean, parseCliArgs } = require('./utils');
 const { assertValidLogLevel, normalizeLogLevel } = require('./logger');
 
 const SUPPORTED_DEPLOYMENT_ENVIRONMENTS = ['github', 'cloudflare', 'none'];
@@ -39,6 +39,9 @@ const PROJECT_CONFIG = {
       registryVersion: '0.1',
       externalRepositories: [],
       deploymentEnvironment: 'github',
+      uploadArtifacts: false,
+      artifactName: 'mcp-registry-files',
+      artifactRetentionDays: undefined,
     },
     env: {
       actionType: 'MCP_REGISTRY_ACTION_TYPE',
@@ -49,6 +52,9 @@ const PROJECT_CONFIG = {
       deploymentEnvironment: 'DEPLOYMENT_ENVIRONMENT',
       configFile: 'MCP_REGISTRY_CONFIG',
       externalRepositories: 'MCP_REGISTRY_EXTERNAL_REPOSITORIES',
+      uploadArtifacts: 'MCP_REGISTRY_UPLOAD_ARTIFACTS',
+      artifactName: 'MCP_REGISTRY_ARTIFACT_NAME',
+      artifactRetentionDays: 'MCP_REGISTRY_ARTIFACT_RETENTION_DAYS',
       serverSlug: 'MCP_SERVER_SLUG',
       serverName: 'MCP_SERVER_NAME',
       serverTitle: 'MCP_SERVER_TITLE',
@@ -68,8 +74,12 @@ const PROJECT_CONFIG = {
       logLevel: 'log_level',
       source: 'source',
       output: 'output',
+      outputDirectory: 'output_directory',
       deploymentEnvironment: 'deployment_environment',
       configFile: 'config',
+      uploadArtifacts: 'upload_artifacts',
+      artifactName: 'artifact_name',
+      artifactRetentionDays: 'artifact_retention_days',
       serverSlug: 'server_slug',
       serverName: 'server_name',
       serverTitle: 'server_title',
@@ -162,12 +172,40 @@ function normalizeActionPublicDirectory(value, defaults) {
   return normalizedValue;
 }
 
+function normalizeOutputBaseDirectory(value, defaults) {
+  if (!value || !String(value).trim()) {
+    return defaults.output;
+  }
+
+  const normalizedValue = String(value)
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/\/+$/, '');
+
+  return normalizedValue || defaults.output;
+}
+
 function assertValidActionType(actionType) {
   if (!SUPPORTED_ACTION_TYPES.includes(actionType)) {
     throw new Error(
       `Invalid action type selected: ${actionType}. Supported action types: ${SUPPORTED_ACTION_TYPES.join(', ')}`,
     );
   }
+}
+
+function normalizeArtifactRetentionDays(value) {
+  if (!value || !String(value).trim()) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(String(value).trim(), 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(
+      `Invalid artifact retention days: ${value}. Provide a positive integer.`,
+    );
+  }
+
+  return parsed;
 }
 
 function getRuntimeConfig(
@@ -214,7 +252,13 @@ function getRuntimeConfig(
     : cliArgs.source || sourceEnv || defaults.source;
 
   const output = isGitHubActionRuntime
-    ? outputEnv || defaults.output
+    ? normalizeOutputBaseDirectory(
+        core.getInput(inputs.outputDirectory) ||
+          outputEnv ||
+          env.DEPLOY_DIR ||
+          defaults.output,
+        defaults,
+      )
     : cliArgs.output || outputEnv || defaults.output;
 
   const publicDirectoryName = isGitHubActionRuntime
@@ -248,6 +292,29 @@ function getRuntimeConfig(
 
   const externalRepositories = parseExternalRepositories(
     externalRepositoriesRaw,
+  );
+
+  const uploadArtifacts = isGitHubActionRuntime
+    ? parseBoolean(
+        core.getInput(inputs.uploadArtifacts) || env[envKeys.uploadArtifacts],
+        defaults.uploadArtifacts,
+      )
+    : parseBoolean(env[envKeys.uploadArtifacts], defaults.uploadArtifacts);
+
+  const artifactNameRaw = isGitHubActionRuntime
+    ? core.getInput(inputs.artifactName) || env[envKeys.artifactName]
+    : env[envKeys.artifactName];
+
+  const artifactName =
+    artifactNameRaw && String(artifactNameRaw).trim()
+      ? String(artifactNameRaw).trim()
+      : defaults.artifactName;
+
+  const artifactRetentionDays = normalizeArtifactRetentionDays(
+    isGitHubActionRuntime
+      ? core.getInput(inputs.artifactRetentionDays) ||
+          env[envKeys.artifactRetentionDays]
+      : env[envKeys.artifactRetentionDays],
   );
 
   const readOptional = (inputName, envName, cliValue) => {
@@ -342,6 +409,9 @@ function getRuntimeConfig(
     deploymentEnvironment,
     configFile,
     externalRepositories,
+    uploadArtifacts,
+    artifactName,
+    artifactRetentionDays,
     serverManifest,
   };
 }

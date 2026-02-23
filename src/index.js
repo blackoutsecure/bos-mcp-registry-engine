@@ -12,6 +12,7 @@ const {
   validateServerManifest,
 } = require('./lib/server-manifest');
 const { createLogger } = require('./lib/logger');
+const { uploadArtifacts } = require('./lib/artifact-uploader');
 
 async function run() {
   try {
@@ -25,13 +26,16 @@ async function run() {
       deploymentEnvironment: runtimeConfig.deploymentEnvironment,
       configFile: runtimeConfig.configFile,
       logLevel: runtimeConfig.logLevel,
+      uploadArtifacts: runtimeConfig.uploadArtifacts,
+      artifactName: runtimeConfig.artifactName,
+      artifactRetentionDays: runtimeConfig.artifactRetentionDays,
     });
 
     if (
       runtimeConfig.actionType === 'generate_registry' ||
       runtimeConfig.actionType === 'validate_registry'
     ) {
-      await runRegistryGeneration({
+      const result = await runRegistryGeneration({
         actionType: runtimeConfig.actionType,
         logger,
         sourceDir: runtimeConfig.source,
@@ -42,6 +46,16 @@ async function run() {
         configFile: runtimeConfig.configFile,
         externalRepositories: runtimeConfig.externalRepositories,
       });
+
+      if (runtimeConfig.actionType === 'generate_registry') {
+        await uploadArtifacts({
+          logger,
+          enabled: runtimeConfig.uploadArtifacts,
+          outputRootDir: result.outputRootDir,
+          artifactName: runtimeConfig.artifactName,
+          artifactRetentionDays: runtimeConfig.artifactRetentionDays,
+        });
+      }
       return;
     }
 

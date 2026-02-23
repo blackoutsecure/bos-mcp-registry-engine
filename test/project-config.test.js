@@ -38,6 +38,7 @@ describe('project-config', () => {
           log_level: 'debug',
           source: './action-servers',
           output: 'site',
+          output_directory: 'dist',
           deployment_environment: 'cloudflare',
           config: './config/action-config.json',
         };
@@ -57,6 +58,46 @@ describe('project-config', () => {
     expect(config.logLevel).to.equal('debug');
     expect(config.configFile).to.equal('./config/action-config.json');
     expect(config.externalRepositories).to.equal(undefined);
+  });
+
+  it('supports output_directory and output together in GitHub Actions', () => {
+    const actionCore = {
+      getInput(name) {
+        const values = {
+          action_type: 'generate_registry',
+          output_directory: './release-dist',
+          output: 'registry-public',
+        };
+
+        return values[name] || '';
+      },
+    };
+
+    const config = getRuntimeConfig(actionCore, [], { GITHUB_ACTIONS: 'true' });
+
+    expect(config.output).to.equal('./release-dist');
+    expect(config.publicDirectoryName).to.equal('registry-public');
+  });
+
+  it('uses DEPLOY_DIR fallback for output base path in GitHub Actions', () => {
+    const config = getRuntimeConfig(
+      {
+        getInput(name) {
+          const values = {
+            action_type: 'generate_registry',
+          };
+
+          return values[name] || '';
+        },
+      },
+      [],
+      {
+        GITHUB_ACTIONS: 'true',
+        DEPLOY_DIR: './deploy-output',
+      },
+    );
+
+    expect(config.output).to.equal('./deploy-output');
   });
 
   it('fails for invalid external repositories env JSON', () => {
@@ -241,5 +282,53 @@ describe('project-config', () => {
       packageIdentifier: '@example/mcp-server',
       packageTransportType: 'stdio',
     });
+  });
+
+  it('maps artifact upload inputs in GitHub Actions runtime', () => {
+    const actionCore = {
+      getInput(name) {
+        const values = {
+          action_type: 'generate_registry',
+          upload_artifacts: 'true',
+          artifact_name: 'registry-release-files',
+          artifact_retention_days: '5',
+        };
+
+        return values[name] || '';
+      },
+    };
+
+    const config = getRuntimeConfig(actionCore, [], { GITHUB_ACTIONS: 'true' });
+
+    expect(config.uploadArtifacts).to.equal(true);
+    expect(config.artifactName).to.equal('registry-release-files');
+    expect(config.artifactRetentionDays).to.equal(5);
+  });
+
+  it('uses artifact upload defaults when not provided', () => {
+    const config = getRuntimeConfig(core, [], { GITHUB_ACTIONS: 'true' });
+
+    expect(config.uploadArtifacts).to.equal(false);
+    expect(config.artifactName).to.equal('mcp-registry-files');
+    expect(config.artifactRetentionDays).to.equal(undefined);
+  });
+
+  it('fails for invalid artifact retention days', () => {
+    expect(() =>
+      getRuntimeConfig(
+        {
+          getInput(name) {
+            const values = {
+              action_type: 'generate_registry',
+              artifact_retention_days: '0',
+            };
+
+            return values[name] || '';
+          },
+        },
+        [],
+        { GITHUB_ACTIONS: 'true' },
+      ),
+    ).to.throw('Invalid artifact retention days');
   });
 });

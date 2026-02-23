@@ -715,7 +715,12 @@ async function runRegistryGeneration(options = {}) {
     logger.info(
       `\n✓ Validation complete: ${servers.length} server(s) validated successfully`,
     );
-    return { validated: true, serverCount: servers.length, registryOutputDir };
+    return {
+      validated: true,
+      serverCount: servers.length,
+      outputRootDir,
+      registryOutputDir,
+    };
   }
 
   await generateRegistry({
@@ -734,7 +739,12 @@ async function runRegistryGeneration(options = {}) {
   );
   logger.info(`✓ Total servers: ${servers.length}`);
 
-  return { validated: true, serverCount: servers.length, registryOutputDir };
+  return {
+    validated: true,
+    serverCount: servers.length,
+    outputRootDir,
+    registryOutputDir,
+  };
 }
 
 module.exports = {

@@ -9,7 +9,7 @@ Static MCP registry generator and GitHub Marketplace Action for producing host-a
 ## What it does
 
 - Validates `servers/<name>/server.json` and `servers/<name>/versions/<semver>.json`
-- Generates static registry output under `dist/<output>`
+- Generates static registry output under `<output_directory>/<output>`
 - Supports server-manifest lifecycle in MCP server repositories (generate/update + validate)
 - Keeps generated public artifacts in the configured `output` folder (default: `public`)
 - Produces versioned API-compatible artifacts for `v0.1` and `v0` alias
@@ -47,6 +47,8 @@ jobs:
           # Suggested: debug, info, warn, error
           log_level: 'info'
           source: './servers'
+          # Optional (default): dist
+          output_directory: 'dist'
           # Optional (default): public
           # Generates to dist/public
           output: 'public'
@@ -60,33 +62,38 @@ jobs:
 
 The table below is aligned with [action.yml](action.yml) inputs.
 
-| Input                    | Required | Default     | Description            |
-| ------------------------ | -------- | ----------- | ---------------------- |
-| `action_type`            | Yes      | _(none)_    | Operation mode         |
-| `log_level`              | No       | `info`      | Console logging level  |
-| `source`                 | No       | `./servers` | Servers root path      |
-| `output`                 | No       | `public`    | Registry public folder |
-| `deployment_environment` | No       | `github`    | Hosting profile        |
-| `config`                 | No       | _(none)_    | Registry config file   |
-| `server_slug`            | No       | _(none)_    | Server folder slug     |
-| `server_name`            | No       | _(none)_    | Server manifest name   |
-| `server_description`     | No       | _(none)_    | Server description     |
-| `server_title`           | No       | _(none)_    | Server title           |
-| `server_website_url`     | No       | _(none)_    | Server website URL     |
-| `repository_url`         | No       | _(none)_    | Repository URL         |
-| `repository_source`      | No       | `github`    | Repository source      |
-| `repository_subfolder`   | No       | _(none)_    | Repository subfolder   |
-| `server_version`         | No       | `1.0.0`     | Version manifest value |
-| `release_date`           | No       | _(none)_    | Release date           |
-| `package_registry_type`  | No       | `npm`       | Package registry type  |
-| `package_identifier`     | No       | _(none)_    | Package identifier     |
-| `package_transport_type` | No       | `stdio`     | Package transport type |
+| Input                     | Required | Default              | Description                             |
+| ------------------------- | -------- | -------------------- | --------------------------------------- |
+| `action_type`             | Yes      | _(none)_             | Operation mode                          |
+| `log_level`               | No       | `info`               | Console logging level                   |
+| `source`                  | No       | `./servers`          | Servers root path                       |
+| `output_directory`        | No       | `dist`               | Base output directory path              |
+| `output`                  | No       | `public`             | Registry public folder                  |
+| `deployment_environment`  | No       | `github`             | Hosting profile                         |
+| `config`                  | No       | _(none)_             | Registry config file                    |
+| `upload_artifacts`        | No       | `false`              | Upload generated registry as artifact   |
+| `artifact_name`           | No       | `mcp-registry-files` | Artifact name when upload enabled       |
+| `artifact_retention_days` | No       | _(none)_             | Retention days (positive integer)       |
+| `server_slug`             | No       | _(none)_             | Server folder slug                      |
+| `server_name`             | No       | _(none)_             | Server manifest name                    |
+| `server_description`      | No       | _(none)_             | Server description                      |
+| `server_title`            | No       | _(none)_             | Server title                            |
+| `server_website_url`      | No       | _(none)_             | Server website URL                      |
+| `repository_url`          | No       | _(none)_             | Repository URL                          |
+| `repository_source`       | No       | `github`             | Repository source                       |
+| `repository_subfolder`    | No       | _(none)_             | Repository subfolder                    |
+| `server_version`          | No       | `1.0.0`              | Version manifest value                  |
+| `release_date`            | No       | _(none)_             | Release date                            |
+| `package_registry_type`   | No       | `npm`                | Package registry type                   |
+| `package_identifier`      | No       | _(none)_             | Package identifier                      |
+| `package_transport_type`  | No       | `stdio`              | Package transport type                  |
 
 Input details:
 
 - `action_type`: `generate_registry`, `validate_registry`, `generate_server_manifest`, `validate_server_manifest`.
 - `log_level`: `debug`, `info`, `warn`, `error`.
-- `output` and `deployment_environment` apply to registry actions.
+- `output_directory`, `output`, and `deployment_environment` apply to registry actions.
+- `upload_artifacts`, `artifact_name`, and `artifact_retention_days` apply to `generate_registry` only.
 - `server_slug` is required for server-manifest actions.
 - `server_name` and `server_description` are required for `generate_server_manifest`.
 - `config` supports `version` and `externalRepositories`.
@@ -97,9 +104,13 @@ Input details:
 | ------------------------ | ----------------- | ----------------- | ------------------------ | ------------------------ |
 | `source`                 | Required          | Required          | Required                 | Required                 |
 | `log_level`              | Optional          | Optional          | Optional                 | Optional                 |
+| `output_directory`       | Optional          | Optional          | N/A                      | N/A                      |
 | `output`                 | Optional          | Optional          | N/A                      | N/A                      |
 | `deployment_environment` | Optional          | Optional          | N/A                      | N/A                      |
 | `config`                 | Optional          | Optional          | N/A                      | N/A                      |
+| `upload_artifacts`       | Optional          | N/A               | N/A                      | N/A                      |
+| `artifact_name`          | Optional          | N/A               | N/A                      | N/A                      |
+| `artifact_retention_days`| Optional          | N/A               | N/A                      | N/A                      |
 | `server_slug`            | N/A               | N/A               | Required                 | Required                 |
 | `server_name`            | N/A               | N/A               | Required                 | N/A                      |
 | `server_description`     | N/A               | N/A               | Required                 | N/A                      |
@@ -192,20 +203,21 @@ jobs:
 
 ### Action vs CLI output semantics
 
-- In GitHub Actions, `output` is the public directory name under internal base `dist`.
-- Effective Action output path is always `dist/<output>`.
-- In local CLI usage, `--output` still means base output directory (for example `./dist`) and `--public-directory` controls the public folder name.
+- In GitHub Actions, `output_directory` controls the base output path (default `dist`).
+- In GitHub Actions, `output` controls the public directory name under that base (default `public`).
+- Effective Action output path is `<output_directory>/<output>`.
+- In local CLI usage, `--output` means base output directory (for example `./dist`) and `--public-directory` controls the public folder name.
 
-### How `output` works
+### How output paths work
 
-- Internal base path remains `dist`.
-- Action input `output` controls only the public directory name under that base.
-- Effective Action output path is `dist/<output>`.
+- Action input `output_directory` controls the base path.
+- Action input `output` controls the public directory under that base.
+- Effective Action output path is `<output_directory>/<output>`.
 
 Examples:
 
-- `output: public` → `dist/public`
-- `output: registry` → `dist/registry`
+- `output_directory: dist` and `output: public` → `dist/public`
+- `output_directory: build` and `output: registry` → `build/registry`
 
 ### Workflow example: validate then generate
 
@@ -253,6 +265,22 @@ jobs:
         with:
           name: mcp-registry-public
           path: dist/public
+```
+
+### Optional built-in artifact upload
+
+You can let this action upload the generated registry directory as a GitHub Actions artifact directly:
+
+```yaml
+- name: Generate static registry artifacts
+  uses: blackoutsecure/bos-mcp-registry-engine@v1
+  with:
+    action_type: 'generate_registry'
+    source: './servers'
+    output: 'public'
+    upload_artifacts: 'true'
+    artifact_name: 'mcp-registry-public'
+    artifact_retention_days: '7'
 ```
 
 ### Workflow example: generate/update server manifests in an MCP server repo

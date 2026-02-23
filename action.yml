@@ -29,12 +29,27 @@ inputs:
     description: 'Public output directory name under internal base output path (default: public)'
     required: false
     default: 'public'
+  output_directory:
+    description: 'Base output directory path for generated registry artifacts (default: dist)'
+    required: false
+    default: 'dist'
   deployment_environment:
     description: 'Deployment environment profile (github for GitHub Pages, cloudflare for Cloudflare Pages/Workers, none for host-agnostic static output)'
     required: false
     default: 'github'
   config:
     description: 'Optional path to custom registry config file (supports version and externalRepositories)'
+    required: false
+  upload_artifacts:
+    description: 'Upload generated registry output as a GitHub Actions artifact (generate_registry only)'
+    required: false
+    default: 'false'
+  artifact_name:
+    description: 'Artifact name used when upload_artifacts is enabled'
+    required: false
+    default: 'mcp-registry-files'
+  artifact_retention_days:
+    description: 'Optional artifact retention in days (positive integer) when upload_artifacts is enabled'
     required: false
   server_slug:
     description: 'Server folder slug under source (required for generate_server_manifest and validate_server_manifest)'
