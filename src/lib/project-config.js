@@ -10,9 +10,17 @@
  * are centralized here for consistency.
  */
 
-const { parseBoolean, parseCliArgs } = require('./utils');
+const { parseCliArgs } = require('./utils');
+const { assertValidLogLevel, normalizeLogLevel } = require('./logger');
 
 const SUPPORTED_DEPLOYMENT_ENVIRONMENTS = ['github', 'cloudflare', 'none'];
+const SUPPORTED_ACTION_TYPES = [
+  'generate_registry',
+  'validate_registry',
+  'generate_server_manifest',
+  'validate_server_manifest',
+];
+const DEFAULT_ACTION_TYPE = 'generate_registry';
 
 const PROJECT_CONFIG = {
   metadata: {
@@ -27,26 +35,54 @@ const PROJECT_CONFIG = {
       source: 'servers',
       output: 'dist',
       publicDirectoryName: 'public',
+      logLevel: 'info',
       registryVersion: '0.1',
       externalRepositories: [],
       deploymentEnvironment: 'github',
     },
     env: {
+      actionType: 'MCP_REGISTRY_ACTION_TYPE',
+      logLevel: 'MCP_REGISTRY_LOG_LEVEL',
       source: 'SERVERS_DIR',
       output: 'REGISTRY_DIR',
       publicDirectory: 'MCP_REGISTRY_PUBLIC_DIR',
       deploymentEnvironment: 'DEPLOYMENT_ENVIRONMENT',
-      validateOnly: 'MCP_REGISTRY_VALIDATE_ONLY',
       configFile: 'MCP_REGISTRY_CONFIG',
       externalRepositories: 'MCP_REGISTRY_EXTERNAL_REPOSITORIES',
+      serverSlug: 'MCP_SERVER_SLUG',
+      serverName: 'MCP_SERVER_NAME',
+      serverTitle: 'MCP_SERVER_TITLE',
+      serverDescription: 'MCP_SERVER_DESCRIPTION',
+      serverWebsiteUrl: 'MCP_SERVER_WEBSITE_URL',
+      repositoryUrl: 'MCP_SERVER_REPOSITORY_URL',
+      repositorySource: 'MCP_SERVER_REPOSITORY_SOURCE',
+      repositorySubfolder: 'MCP_SERVER_REPOSITORY_SUBFOLDER',
+      serverVersion: 'MCP_SERVER_VERSION',
+      releaseDate: 'MCP_SERVER_RELEASE_DATE',
+      packageRegistryType: 'MCP_SERVER_PACKAGE_REGISTRY_TYPE',
+      packageIdentifier: 'MCP_SERVER_PACKAGE_IDENTIFIER',
+      packageTransportType: 'MCP_SERVER_PACKAGE_TRANSPORT_TYPE',
     },
     inputs: {
+      actionType: 'action_type',
+      logLevel: 'log_level',
       source: 'source',
       output: 'output',
-      publicDirectory: 'public_directory',
       deploymentEnvironment: 'deployment_environment',
       configFile: 'config',
-      externalRepositories: 'external_repositories',
+      serverSlug: 'server_slug',
+      serverName: 'server_name',
+      serverTitle: 'server_title',
+      serverDescription: 'server_description',
+      serverWebsiteUrl: 'server_website_url',
+      repositoryUrl: 'repository_url',
+      repositorySource: 'repository_source',
+      repositorySubfolder: 'repository_subfolder',
+      serverVersion: 'server_version',
+      releaseDate: 'release_date',
+      packageRegistryType: 'package_registry_type',
+      packageIdentifier: 'package_identifier',
+      packageTransportType: 'package_transport_type',
     },
   },
 };
@@ -90,6 +126,22 @@ function assertValidDeploymentEnvironment(environment) {
   }
 }
 
+function normalizeActionType(value, fallback = 'generate_registry') {
+  if (!value || !String(value).trim()) {
+    return fallback;
+  }
+
+  return String(value).trim().toLowerCase();
+}
+
+function assertValidActionType(actionType) {
+  if (!SUPPORTED_ACTION_TYPES.includes(actionType)) {
+    throw new Error(
+      `Invalid action type selected: ${actionType}. Supported action types: ${SUPPORTED_ACTION_TYPES.join(', ')}`,
+    );
+  }
+}
+
 function getRuntimeConfig(
   core,
   argv = process.argv.slice(2),
@@ -99,24 +151,46 @@ function getRuntimeConfig(
   const cliArgs = parseCliArgs(argv);
   const { defaults, env: envKeys, inputs } = PROJECT_CONFIG.runtime;
 
+  const actionTypeEnv = env[envKeys.actionType];
+  const logLevelEnv = env[envKeys.logLevel];
   const sourceEnv = env[envKeys.source];
   const outputEnv = env[envKeys.output];
   const publicDirectoryEnv = env[envKeys.publicDirectory];
   const deploymentEnvironmentEnv = env[envKeys.deploymentEnvironment];
-  const validateOnlyEnv = env[envKeys.validateOnly];
   const configFileEnv = env[envKeys.configFile];
   const externalRepositoriesEnv = env[envKeys.externalRepositories];
+
+  const actionType = isGitHubActionRuntime
+    ? normalizeActionType(
+        core.getInput(inputs.actionType) || actionTypeEnv,
+        DEFAULT_ACTION_TYPE,
+      )
+    : normalizeActionType(
+        cliArgs.actionType || actionTypeEnv,
+        DEFAULT_ACTION_TYPE,
+      );
+
+  assertValidActionType(actionType);
+
+  const logLevel = isGitHubActionRuntime
+    ? normalizeLogLevel(
+        core.getInput(inputs.logLevel) || logLevelEnv,
+        defaults.logLevel,
+      )
+    : normalizeLogLevel(cliArgs.logLevel || logLevelEnv, defaults.logLevel);
+
+  assertValidLogLevel(logLevel);
 
   const source = isGitHubActionRuntime
     ? core.getInput(inputs.source) || sourceEnv || defaults.source
     : cliArgs.source || sourceEnv || defaults.source;
 
   const output = isGitHubActionRuntime
-    ? core.getInput(inputs.output) || outputEnv || defaults.output
+    ? outputEnv || defaults.output
     : cliArgs.output || outputEnv || defaults.output;
 
   const publicDirectoryName = isGitHubActionRuntime
-    ? core.getInput(inputs.publicDirectory) ||
+    ? core.getInput(inputs.output) ||
       publicDirectoryEnv ||
       defaults.publicDirectoryName
     : cliArgs.publicDirectory ||
@@ -135,37 +209,117 @@ function getRuntimeConfig(
 
   assertValidDeploymentEnvironment(deploymentEnvironment);
 
-  const validateOnly = isGitHubActionRuntime
-    ? parseBoolean(validateOnlyEnv, false)
-    : cliArgs.validateOnly;
-
   const configFile = isGitHubActionRuntime
     ? core.getInput(inputs.configFile) || configFileEnv
     : cliArgs.configFile || configFileEnv;
 
-  const externalRepositoriesRaw = isGitHubActionRuntime
-    ? core.getInput(inputs.externalRepositories) || externalRepositoriesEnv
-    : externalRepositoriesEnv;
+  const externalRepositoriesRaw = externalRepositoriesEnv;
 
   const externalRepositories = parseExternalRepositories(
     externalRepositoriesRaw,
   );
 
+  const readOptional = (inputName, envName, cliValue) => {
+    if (isGitHubActionRuntime) {
+      const value = core.getInput(inputName) || env[envName];
+      return value && String(value).trim() ? String(value).trim() : undefined;
+    }
+
+    const value = cliValue || env[envName];
+    return value && String(value).trim() ? String(value).trim() : undefined;
+  };
+
+  const serverManifest = {
+    serverSlug: readOptional(
+      inputs.serverSlug,
+      envKeys.serverSlug,
+      cliArgs.serverSlug,
+    ),
+    serverName: readOptional(
+      inputs.serverName,
+      envKeys.serverName,
+      cliArgs.serverName,
+    ),
+    serverTitle: readOptional(
+      inputs.serverTitle,
+      envKeys.serverTitle,
+      cliArgs.serverTitle,
+    ),
+    serverDescription: readOptional(
+      inputs.serverDescription,
+      envKeys.serverDescription,
+      cliArgs.serverDescription,
+    ),
+    serverWebsiteUrl: readOptional(
+      inputs.serverWebsiteUrl,
+      envKeys.serverWebsiteUrl,
+      cliArgs.serverWebsiteUrl,
+    ),
+    repositoryUrl: readOptional(
+      inputs.repositoryUrl,
+      envKeys.repositoryUrl,
+      cliArgs.repositoryUrl,
+    ),
+    repositorySource:
+      readOptional(
+        inputs.repositorySource,
+        envKeys.repositorySource,
+        cliArgs.repositorySource,
+      ) || 'github',
+    repositorySubfolder: readOptional(
+      inputs.repositorySubfolder,
+      envKeys.repositorySubfolder,
+      cliArgs.repositorySubfolder,
+    ),
+    serverVersion:
+      readOptional(
+        inputs.serverVersion,
+        envKeys.serverVersion,
+        cliArgs.serverVersion,
+      ) || '1.0.0',
+    releaseDate: readOptional(
+      inputs.releaseDate,
+      envKeys.releaseDate,
+      cliArgs.releaseDate,
+    ),
+    packageRegistryType:
+      readOptional(
+        inputs.packageRegistryType,
+        envKeys.packageRegistryType,
+        cliArgs.packageRegistryType,
+      ) || 'npm',
+    packageIdentifier: readOptional(
+      inputs.packageIdentifier,
+      envKeys.packageIdentifier,
+      cliArgs.packageIdentifier,
+    ),
+    packageTransportType:
+      readOptional(
+        inputs.packageTransportType,
+        envKeys.packageTransportType,
+        cliArgs.packageTransportType,
+      ) || 'stdio',
+  };
+
   return {
+    actionType,
+    logLevel,
     source,
     output,
     publicDirectoryName,
     registryVersion: defaults.registryVersion,
     deploymentEnvironment,
-    validateOnly,
     configFile,
     externalRepositories,
+    serverManifest,
   };
 }
 
 module.exports = {
   PROJECT_CONFIG,
+  SUPPORTED_ACTION_TYPES,
   SUPPORTED_DEPLOYMENT_ENVIRONMENTS,
+  assertValidActionType,
   assertValidDeploymentEnvironment,
   getRuntimeConfig,
 };

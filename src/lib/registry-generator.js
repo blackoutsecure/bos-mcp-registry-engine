@@ -15,10 +15,11 @@ const {
 } = require('./project-config');
 const { formatValidationPath, resolveWorkspacePath } = require('./utils');
 const { writeDeploymentProfileFiles } = require('./deployment-profiles');
+const { createLogger } = require('./logger');
 
 const REGISTRY_VERSION = PROJECT_CONFIG.runtime.defaults.registryVersion;
 
-function createValidator(ajv, schema) {
+function createValidator(ajv, schema, logger) {
   const validate = ajv.compile(schema);
   return (data, filename) => {
     const isValid = validate(data);
@@ -26,9 +27,9 @@ function createValidator(ajv, schema) {
       return true;
     }
 
-    console.error(`\n✗ Validation failed for ${filename}:`);
+    logger.error(`\n✗ Validation failed for ${filename}:`);
     for (const error of validate.errors || []) {
-      console.error(
+      logger.error(
         `  - ${formatValidationPath(error.instancePath)} ${error.message}`,
       );
     }
@@ -59,15 +60,15 @@ async function resolveSchemasDirectory(explicitPath) {
   );
 }
 
-async function loadSchemas(ajv, schemasDir) {
+async function loadSchemas(ajv, schemasDir, logger) {
   const [serverSchema, versionSchema] = await Promise.all([
     fs.readJson(path.join(schemasDir, 'server.schema.json')),
     fs.readJson(path.join(schemasDir, 'version.schema.json')),
   ]);
 
   return {
-    validateServer: createValidator(ajv, serverSchema),
-    validateVersion: createValidator(ajv, versionSchema),
+    validateServer: createValidator(ajv, serverSchema, logger),
+    validateVersion: createValidator(ajv, versionSchema, logger),
   };
 }
 
@@ -134,13 +135,18 @@ function normalizeExternalPath(entry) {
   return null;
 }
 
-async function resolveServerRoots(workspaceRoot, sourceServersDir, config) {
+async function resolveServerRoots(
+  workspaceRoot,
+  sourceServersDir,
+  config,
+  logger,
+) {
   const roots = [{ path: sourceServersDir, source: 'local' }];
 
   for (const [index, entry] of config.externalRepositories.entries()) {
     const rawPath = normalizeExternalPath(entry);
     if (!rawPath) {
-      console.warn(
+      logger.warn(
         `⚠ Skipping externalRepositories[${index}]: unsupported format`,
       );
       continue;
@@ -148,13 +154,13 @@ async function resolveServerRoots(workspaceRoot, sourceServersDir, config) {
 
     const resolvedPath = path.resolve(workspaceRoot, rawPath);
     if (!(await fs.pathExists(resolvedPath))) {
-      console.warn(`⚠ Skipping external path not found: ${resolvedPath}`);
+      logger.warn(`⚠ Skipping external path not found: ${resolvedPath}`);
       continue;
     }
 
     const stats = await fs.stat(resolvedPath);
     if (!stats.isDirectory()) {
-      console.warn(
+      logger.warn(
         `⚠ Skipping external path (not a directory): ${resolvedPath}`,
       );
       continue;
@@ -172,7 +178,7 @@ function readVersionFileNames(versionFiles) {
   );
 }
 
-async function readServerFromDirectory(serverDir, source, validators) {
+async function readServerFromDirectory(serverDir, source, validators, logger) {
   const serverName = path.basename(serverDir);
   const serverJsonPath = path.join(serverDir, 'server.json');
 
@@ -184,7 +190,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
   try {
     serverData = await fs.readJson(serverJsonPath);
   } catch (error) {
-    console.error(
+    logger.error(
       `✗ Failed to parse ${serverName}/server.json (${source}):`,
       error.message,
     );
@@ -197,7 +203,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
 
   const versionsDir = path.join(serverDir, 'versions');
   if (!(await fs.pathExists(versionsDir))) {
-    console.warn(
+    logger.warn(
       `⚠ Skipping ${serverName}: missing versions directory (${source})`,
     );
     return null;
@@ -213,7 +219,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
     try {
       versionData = await fs.readJson(versionPath);
     } catch (error) {
-      console.error(
+      logger.error(
         `✗ Failed to parse ${serverName}/versions/${versionFile}:`,
         error.message,
       );
@@ -230,7 +236,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
     }
 
     if (!semver.valid(versionData.version)) {
-      console.error(
+      logger.error(
         `✗ Invalid semantic version in ${serverName}/versions/${versionFile}: ${versionData.version}`,
       );
       continue;
@@ -243,7 +249,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
   }
 
   if (versions.length === 0) {
-    console.warn(`⚠ Skipping ${serverName}: no valid versions (${source})`);
+    logger.warn(`⚠ Skipping ${serverName}: no valid versions (${source})`);
     return null;
   }
 
@@ -263,17 +269,19 @@ async function readServers(
   sourceServersDir,
   validators,
   config,
+  logger,
 ) {
   const roots = await resolveServerRoots(
     workspaceRoot,
     sourceServersDir,
     config,
+    logger,
   );
   const serversByName = new Map();
 
   for (const root of roots) {
     if (!(await fs.pathExists(root.path))) {
-      console.warn(`⚠ Skipping source path not found: ${root.path}`);
+      logger.warn(`⚠ Skipping source path not found: ${root.path}`);
       continue;
     }
 
@@ -289,6 +297,7 @@ async function readServers(
         serverDir,
         root.source,
         validators,
+        logger,
       );
       if (!server) {
         continue;
@@ -296,14 +305,14 @@ async function readServers(
 
       const existing = serversByName.get(server.name);
       if (existing) {
-        console.warn(
+        logger.warn(
           `⚠ Duplicate server "${server.name}" from ${server.source} ignored; using ${existing.source}`,
         );
         continue;
       }
 
       serversByName.set(server.name, server);
-      console.log(
+      logger.info(
         `✓ Loaded ${server.name} (${server.versions.length} version(s), ${server.source})`,
       );
     }
@@ -468,6 +477,7 @@ async function writeApiCompatJson(basePath, data) {
 }
 
 async function generateRegistry({
+  logger,
   outputRootDir,
   registryOutputDir,
   registryVersion,
@@ -500,17 +510,17 @@ async function generateRegistry({
       deploymentEnvironment,
     });
 
-  console.log(`✓ Wrote ${rootIndexPath}`);
-  console.log(`✓ Wrote ${versionIndexPath}`);
+  logger.info(`✓ Wrote ${rootIndexPath}`);
+  logger.info(`✓ Wrote ${versionIndexPath}`);
   if (deploymentEnvironment === 'cloudflare') {
-    console.log(`✓ Wrote ${cloudflareHeadersPath}`);
-    console.log(`✓ Wrote ${cloudflareRedirectsPath}`);
+    logger.info(`✓ Wrote ${cloudflareHeadersPath}`);
+    logger.info(`✓ Wrote ${cloudflareRedirectsPath}`);
   }
   if (deploymentEnvironment === 'github') {
-    console.log(`✓ Wrote ${noJekyllPath}`);
+    logger.info(`✓ Wrote ${noJekyllPath}`);
   }
   if (deploymentEnvironment === 'none') {
-    console.log(
+    logger.info(
       '✓ Skipped hosting profile files (_headers, _redirects, .nojekyll) for local/generic static hosting',
     );
   }
@@ -608,6 +618,7 @@ async function createVersionAlias(outputRootDir, registryVersion) {
 }
 
 async function runRegistryGeneration(options = {}) {
+  const logger = options.logger || createLogger('info');
   const { defaults, env: envKeys } = PROJECT_CONFIG.runtime;
   const workspaceRoot =
     options.workspaceRoot || process.env.GITHUB_WORKSPACE || process.cwd();
@@ -644,38 +655,38 @@ async function runRegistryGeneration(options = {}) {
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
 
-  console.log('🚀 Blackout Secure MCP Registry Engine\n');
-  console.log(`📁 Source servers path: ${sourceServersDir}`);
-  console.log(`📦 Output base path: ${outputBaseDir}`);
-  console.log(`📦 Registry output root: ${outputRootDir}`);
-  console.log(`🧾 Registry version path: ${registryOutputDir}\n`);
+  logger.info('🚀 Blackout Secure MCP Registry Engine\n');
+  logger.info(`📁 Source servers path: ${sourceServersDir}`);
+  logger.info(`📦 Output base path: ${outputBaseDir}`);
+  logger.info(`📦 Registry output root: ${outputRootDir}`);
+  logger.info(`🧾 Registry version path: ${registryOutputDir}\n`);
 
   const outputBaseName = path.basename(outputRootDir);
   if (outputBaseName === `v${registryVersion}`) {
-    console.warn(
+    logger.warn(
       `⚠ Output path appears to be a version directory (${outputRootDir}). Use an output base path (for example ./dist) so profile files and root index are generated correctly.\n`,
     );
   }
 
   if (deploymentEnvironment === 'cloudflare') {
-    console.log(
+    logger.info(
       '☁️ Deployment environment: cloudflare (_headers and _redirects will be generated)\n',
     );
   }
 
   if (deploymentEnvironment === 'github') {
-    console.log(
+    logger.info(
       '🐙 Deployment environment: github (.nojekyll will be generated for GitHub Pages)\n',
     );
   }
 
   if (deploymentEnvironment === 'none') {
-    console.log(
+    logger.info(
       '🧪 Deployment environment: none (host-agnostic static output; no platform profile files generated)\n',
     );
   }
 
-  const validators = await loadSchemas(ajv, schemasDir);
+  const validators = await loadSchemas(ajv, schemasDir, logger);
   const config = await loadConfig(
     configFile,
     registryVersion,
@@ -687,20 +698,28 @@ async function runRegistryGeneration(options = {}) {
     sourceServersDir,
     validators,
     config,
+    logger,
   );
 
-  if (servers.length === 0) {
+  if (servers.length === 0 && options.actionType === 'validate_registry') {
     throw new Error('No valid servers found');
   }
 
-  if (options.validateOnly) {
-    console.log(
+  if (servers.length === 0 && options.actionType === 'generate_registry') {
+    logger.warn(
+      '⚠ No valid servers found. Generating an empty registry output.',
+    );
+  }
+
+  if (options.actionType === 'validate_registry') {
+    logger.info(
       `\n✓ Validation complete: ${servers.length} server(s) validated successfully`,
     );
     return { validated: true, serverCount: servers.length, registryOutputDir };
   }
 
   await generateRegistry({
+    logger,
     outputRootDir,
     registryOutputDir,
     registryVersion,
@@ -709,11 +728,11 @@ async function runRegistryGeneration(options = {}) {
   });
   await createVersionAlias(outputRootDir, registryVersion);
 
-  console.log(`\n✓ Registry generated successfully at ${registryOutputDir}`);
-  console.log(
+  logger.info(`\n✓ Registry generated successfully at ${registryOutputDir}`);
+  logger.info(
     `✓ Created API compatibility alias at ${path.join(outputRootDir, 'v0')}`,
   );
-  console.log(`✓ Total servers: ${servers.length}`);
+  logger.info(`✓ Total servers: ${servers.length}`);
 
   return { validated: true, serverCount: servers.length, registryOutputDir };
 }

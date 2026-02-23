@@ -4,6 +4,8 @@ yarn.lock
 pnpm-lock.yaml
 
 # Build outputs
+dist/public/
+servers/
 build/
 coverage/
 .nyc_output/

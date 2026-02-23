@@ -23,7 +23,7 @@ describe('registry-generator', () => {
   it('validates server manifests in validate-only mode', async () => {
     const result = await runRegistryGeneration({
       workspaceRoot,
-      validateOnly: true,
+      actionType: 'validate_registry',
       sourceDir: './servers',
       outputDir: './dist',
       deploymentEnvironment: 'github',
@@ -232,7 +232,7 @@ describe('registry-generator', () => {
     try {
       const result = await runRegistryGeneration({
         workspaceRoot,
-        validateOnly: true,
+        actionType: 'validate_registry',
         sourceDir: './servers',
         outputDir: './dist',
         deploymentEnvironment: 'github',
@@ -248,5 +248,48 @@ describe('registry-generator', () => {
         process.env.MCP_REGISTRY_CONFIG = previousConfigPath;
       }
     }
+  });
+
+  it('generates an empty registry when source has no valid servers', async () => {
+    const emptyServersDir = path.join(workspaceRoot, 'empty-servers');
+    await fs.ensureDir(emptyServersDir);
+
+    await runRegistryGeneration({
+      workspaceRoot,
+      actionType: 'generate_registry',
+      sourceDir: './empty-servers',
+      outputDir: './dist',
+      deploymentEnvironment: 'github',
+      schemasDir: path.join(workspaceRoot, 'schemas'),
+    });
+
+    const outputRoot = resolveOutputPath(workspaceRoot);
+    const serversJsonPath = path.join(outputRoot, 'v0.1', 'servers.json');
+    expect(await fs.pathExists(serversJsonPath)).to.equal(true);
+
+    const serversJson = await fs.readJson(serversJsonPath);
+    expect(serversJson.servers).to.be.an('array').with.length(0);
+  });
+
+  it('fails validation when source has no valid servers', async () => {
+    const emptyServersDir = path.join(workspaceRoot, 'empty-servers');
+    await fs.ensureDir(emptyServersDir);
+
+    let thrownError;
+    try {
+      await runRegistryGeneration({
+        workspaceRoot,
+        actionType: 'validate_registry',
+        sourceDir: './empty-servers',
+        outputDir: './dist',
+        deploymentEnvironment: 'github',
+        schemasDir: path.join(workspaceRoot, 'schemas'),
+      });
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).to.be.instanceOf(Error);
+    expect(thrownError.message).to.equal('No valid servers found');
   });
 });

@@ -3,9 +3,9 @@
 .github/
 node_modules/
 registry/
-dist/registry/
 dist/public/
 build/
+servers/
 
 # Local/editor files
 .vscode/

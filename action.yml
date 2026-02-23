@@ -14,16 +14,19 @@ branding:
   color: 'blue'
 
 inputs:
+  action_type:
+    description: 'Action mode to run (generate_registry, validate_registry, generate_server_manifest, validate_server_manifest)'
+    required: true
+  log_level:
+    description: 'Optional log verbosity level (suggested: debug, info, warn, error)'
+    required: false
+    default: 'info'
   source:
     description: 'Path to the servers directory'
     required: false
     default: './servers'
   output:
-    description: 'Path to the output base directory'
-    required: false
-    default: './dist'
-  public_directory:
-    description: 'Name of the public output directory generated under <output>/<public_directory>'
+    description: 'Public output directory name under internal base output path (default: public)'
     required: false
     default: 'public'
   deployment_environment:
@@ -33,6 +36,46 @@ inputs:
   config:
     description: 'Optional path to custom registry config file (supports version and externalRepositories)'
     required: false
-  external_repositories:
-    description: 'Optional JSON array of additional servers roots (e.g. ["../team/servers", {"path":"../shared/servers"}])'
+  server_slug:
+    description: 'Server folder slug under source (required for generate_server_manifest and validate_server_manifest)'
     required: false
+  server_name:
+    description: 'Server manifest name (required for generate_server_manifest)'
+    required: false
+  server_title:
+    description: 'Optional server title for generated/updated server.json'
+    required: false
+  server_description:
+    description: 'Server manifest description (required for generate_server_manifest)'
+    required: false
+  server_website_url:
+    description: 'Optional server websiteUrl for generated/updated server.json'
+    required: false
+  repository_url:
+    description: 'Optional repository URL for generated/updated server.json'
+    required: false
+  repository_source:
+    description: 'Repository source for generated/updated server.json when repository_url is set'
+    required: false
+    default: 'github'
+  repository_subfolder:
+    description: 'Optional repository subfolder for generated/updated server.json'
+    required: false
+  server_version:
+    description: 'Version manifest filename/version field for generated/updated versions/<version>.json'
+    required: false
+    default: '1.0.0'
+  release_date:
+    description: 'Optional ISO date (YYYY-MM-DD) for generated/updated version manifest releaseDate'
+    required: false
+  package_registry_type:
+    description: 'Package registryType for generated/updated version manifest package entry'
+    required: false
+    default: 'npm'
+  package_identifier:
+    description: 'Optional package identifier for generated/updated version manifest package entry'
+    required: false
+  package_transport_type:
+    description: 'Package transport.type for generated/updated version manifest package entry'
+    required: false
+    default: 'stdio'

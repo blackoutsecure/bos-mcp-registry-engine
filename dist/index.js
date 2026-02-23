@@ -37497,6 +37497,82 @@ module.exports = {
 
 /***/ }),
 
+/***/ 1865:
+/***/ ((module) => {
+
+/**
+ * Blackout Secure MCP Registry Engine
+ * Copyright © 2025-2026 Blackout Secure
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+const SUPPORTED_LOG_LEVELS = ['debug', 'info', 'warn', 'error'];
+
+const LOG_LEVEL_PRIORITY = Object.freeze({
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+});
+
+function normalizeLogLevel(value, fallback = 'info') {
+  if (!value || !String(value).trim()) {
+    return fallback;
+  }
+
+  return String(value).trim().toLowerCase();
+}
+
+function assertValidLogLevel(level) {
+  if (!SUPPORTED_LOG_LEVELS.includes(level)) {
+    throw new Error(
+      `Invalid log level selected: ${level}. Supported log levels: ${SUPPORTED_LOG_LEVELS.join(', ')}`,
+    );
+  }
+}
+
+function createLogger(level = 'info') {
+  const normalizedLevel = normalizeLogLevel(level, 'info');
+  assertValidLogLevel(normalizedLevel);
+
+  const minimum = LOG_LEVEL_PRIORITY[normalizedLevel];
+  const canLog = (messageLevel) => LOG_LEVEL_PRIORITY[messageLevel] >= minimum;
+
+  return {
+    level: normalizedLevel,
+    debug: (...args) => {
+      if (canLog('debug')) {
+        console.log('[DEBUG]', ...args);
+      }
+    },
+    info: (...args) => {
+      if (canLog('info')) {
+        console.log(...args);
+      }
+    },
+    warn: (...args) => {
+      if (canLog('warn')) {
+        console.warn(...args);
+      }
+    },
+    error: (...args) => {
+      if (canLog('error')) {
+        console.error(...args);
+      }
+    },
+  };
+}
+
+module.exports = {
+  SUPPORTED_LOG_LEVELS,
+  normalizeLogLevel,
+  assertValidLogLevel,
+  createLogger,
+};
+
+
+/***/ }),
+
 /***/ 6067:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -37512,9 +37588,17 @@ module.exports = {
  * are centralized here for consistency.
  */
 
-const { parseBoolean, parseCliArgs } = __nccwpck_require__(4068);
+const { parseCliArgs } = __nccwpck_require__(4068);
+const { assertValidLogLevel, normalizeLogLevel } = __nccwpck_require__(1865);
 
 const SUPPORTED_DEPLOYMENT_ENVIRONMENTS = ['github', 'cloudflare', 'none'];
+const SUPPORTED_ACTION_TYPES = [
+  'generate_registry',
+  'validate_registry',
+  'generate_server_manifest',
+  'validate_server_manifest',
+];
+const DEFAULT_ACTION_TYPE = 'generate_registry';
 
 const PROJECT_CONFIG = {
   metadata: {
@@ -37529,26 +37613,54 @@ const PROJECT_CONFIG = {
       source: 'servers',
       output: 'dist',
       publicDirectoryName: 'public',
+      logLevel: 'info',
       registryVersion: '0.1',
       externalRepositories: [],
       deploymentEnvironment: 'github',
     },
     env: {
+      actionType: 'MCP_REGISTRY_ACTION_TYPE',
+      logLevel: 'MCP_REGISTRY_LOG_LEVEL',
       source: 'SERVERS_DIR',
       output: 'REGISTRY_DIR',
       publicDirectory: 'MCP_REGISTRY_PUBLIC_DIR',
       deploymentEnvironment: 'DEPLOYMENT_ENVIRONMENT',
-      validateOnly: 'MCP_REGISTRY_VALIDATE_ONLY',
       configFile: 'MCP_REGISTRY_CONFIG',
       externalRepositories: 'MCP_REGISTRY_EXTERNAL_REPOSITORIES',
+      serverSlug: 'MCP_SERVER_SLUG',
+      serverName: 'MCP_SERVER_NAME',
+      serverTitle: 'MCP_SERVER_TITLE',
+      serverDescription: 'MCP_SERVER_DESCRIPTION',
+      serverWebsiteUrl: 'MCP_SERVER_WEBSITE_URL',
+      repositoryUrl: 'MCP_SERVER_REPOSITORY_URL',
+      repositorySource: 'MCP_SERVER_REPOSITORY_SOURCE',
+      repositorySubfolder: 'MCP_SERVER_REPOSITORY_SUBFOLDER',
+      serverVersion: 'MCP_SERVER_VERSION',
+      releaseDate: 'MCP_SERVER_RELEASE_DATE',
+      packageRegistryType: 'MCP_SERVER_PACKAGE_REGISTRY_TYPE',
+      packageIdentifier: 'MCP_SERVER_PACKAGE_IDENTIFIER',
+      packageTransportType: 'MCP_SERVER_PACKAGE_TRANSPORT_TYPE',
     },
     inputs: {
+      actionType: 'action_type',
+      logLevel: 'log_level',
       source: 'source',
       output: 'output',
-      publicDirectory: 'public_directory',
       deploymentEnvironment: 'deployment_environment',
       configFile: 'config',
-      externalRepositories: 'external_repositories',
+      serverSlug: 'server_slug',
+      serverName: 'server_name',
+      serverTitle: 'server_title',
+      serverDescription: 'server_description',
+      serverWebsiteUrl: 'server_website_url',
+      repositoryUrl: 'repository_url',
+      repositorySource: 'repository_source',
+      repositorySubfolder: 'repository_subfolder',
+      serverVersion: 'server_version',
+      releaseDate: 'release_date',
+      packageRegistryType: 'package_registry_type',
+      packageIdentifier: 'package_identifier',
+      packageTransportType: 'package_transport_type',
     },
   },
 };
@@ -37592,6 +37704,22 @@ function assertValidDeploymentEnvironment(environment) {
   }
 }
 
+function normalizeActionType(value, fallback = 'generate_registry') {
+  if (!value || !String(value).trim()) {
+    return fallback;
+  }
+
+  return String(value).trim().toLowerCase();
+}
+
+function assertValidActionType(actionType) {
+  if (!SUPPORTED_ACTION_TYPES.includes(actionType)) {
+    throw new Error(
+      `Invalid action type selected: ${actionType}. Supported action types: ${SUPPORTED_ACTION_TYPES.join(', ')}`,
+    );
+  }
+}
+
 function getRuntimeConfig(
   core,
   argv = process.argv.slice(2),
@@ -37601,24 +37729,46 @@ function getRuntimeConfig(
   const cliArgs = parseCliArgs(argv);
   const { defaults, env: envKeys, inputs } = PROJECT_CONFIG.runtime;
 
+  const actionTypeEnv = env[envKeys.actionType];
+  const logLevelEnv = env[envKeys.logLevel];
   const sourceEnv = env[envKeys.source];
   const outputEnv = env[envKeys.output];
   const publicDirectoryEnv = env[envKeys.publicDirectory];
   const deploymentEnvironmentEnv = env[envKeys.deploymentEnvironment];
-  const validateOnlyEnv = env[envKeys.validateOnly];
   const configFileEnv = env[envKeys.configFile];
   const externalRepositoriesEnv = env[envKeys.externalRepositories];
+
+  const actionType = isGitHubActionRuntime
+    ? normalizeActionType(
+        core.getInput(inputs.actionType) || actionTypeEnv,
+        DEFAULT_ACTION_TYPE,
+      )
+    : normalizeActionType(
+        cliArgs.actionType || actionTypeEnv,
+        DEFAULT_ACTION_TYPE,
+      );
+
+  assertValidActionType(actionType);
+
+  const logLevel = isGitHubActionRuntime
+    ? normalizeLogLevel(
+        core.getInput(inputs.logLevel) || logLevelEnv,
+        defaults.logLevel,
+      )
+    : normalizeLogLevel(cliArgs.logLevel || logLevelEnv, defaults.logLevel);
+
+  assertValidLogLevel(logLevel);
 
   const source = isGitHubActionRuntime
     ? core.getInput(inputs.source) || sourceEnv || defaults.source
     : cliArgs.source || sourceEnv || defaults.source;
 
   const output = isGitHubActionRuntime
-    ? core.getInput(inputs.output) || outputEnv || defaults.output
+    ? outputEnv || defaults.output
     : cliArgs.output || outputEnv || defaults.output;
 
   const publicDirectoryName = isGitHubActionRuntime
-    ? core.getInput(inputs.publicDirectory) ||
+    ? core.getInput(inputs.output) ||
       publicDirectoryEnv ||
       defaults.publicDirectoryName
     : cliArgs.publicDirectory ||
@@ -37637,37 +37787,117 @@ function getRuntimeConfig(
 
   assertValidDeploymentEnvironment(deploymentEnvironment);
 
-  const validateOnly = isGitHubActionRuntime
-    ? parseBoolean(validateOnlyEnv, false)
-    : cliArgs.validateOnly;
-
   const configFile = isGitHubActionRuntime
     ? core.getInput(inputs.configFile) || configFileEnv
     : cliArgs.configFile || configFileEnv;
 
-  const externalRepositoriesRaw = isGitHubActionRuntime
-    ? core.getInput(inputs.externalRepositories) || externalRepositoriesEnv
-    : externalRepositoriesEnv;
+  const externalRepositoriesRaw = externalRepositoriesEnv;
 
   const externalRepositories = parseExternalRepositories(
     externalRepositoriesRaw,
   );
 
+  const readOptional = (inputName, envName, cliValue) => {
+    if (isGitHubActionRuntime) {
+      const value = core.getInput(inputName) || env[envName];
+      return value && String(value).trim() ? String(value).trim() : undefined;
+    }
+
+    const value = cliValue || env[envName];
+    return value && String(value).trim() ? String(value).trim() : undefined;
+  };
+
+  const serverManifest = {
+    serverSlug: readOptional(
+      inputs.serverSlug,
+      envKeys.serverSlug,
+      cliArgs.serverSlug,
+    ),
+    serverName: readOptional(
+      inputs.serverName,
+      envKeys.serverName,
+      cliArgs.serverName,
+    ),
+    serverTitle: readOptional(
+      inputs.serverTitle,
+      envKeys.serverTitle,
+      cliArgs.serverTitle,
+    ),
+    serverDescription: readOptional(
+      inputs.serverDescription,
+      envKeys.serverDescription,
+      cliArgs.serverDescription,
+    ),
+    serverWebsiteUrl: readOptional(
+      inputs.serverWebsiteUrl,
+      envKeys.serverWebsiteUrl,
+      cliArgs.serverWebsiteUrl,
+    ),
+    repositoryUrl: readOptional(
+      inputs.repositoryUrl,
+      envKeys.repositoryUrl,
+      cliArgs.repositoryUrl,
+    ),
+    repositorySource:
+      readOptional(
+        inputs.repositorySource,
+        envKeys.repositorySource,
+        cliArgs.repositorySource,
+      ) || 'github',
+    repositorySubfolder: readOptional(
+      inputs.repositorySubfolder,
+      envKeys.repositorySubfolder,
+      cliArgs.repositorySubfolder,
+    ),
+    serverVersion:
+      readOptional(
+        inputs.serverVersion,
+        envKeys.serverVersion,
+        cliArgs.serverVersion,
+      ) || '1.0.0',
+    releaseDate: readOptional(
+      inputs.releaseDate,
+      envKeys.releaseDate,
+      cliArgs.releaseDate,
+    ),
+    packageRegistryType:
+      readOptional(
+        inputs.packageRegistryType,
+        envKeys.packageRegistryType,
+        cliArgs.packageRegistryType,
+      ) || 'npm',
+    packageIdentifier: readOptional(
+      inputs.packageIdentifier,
+      envKeys.packageIdentifier,
+      cliArgs.packageIdentifier,
+    ),
+    packageTransportType:
+      readOptional(
+        inputs.packageTransportType,
+        envKeys.packageTransportType,
+        cliArgs.packageTransportType,
+      ) || 'stdio',
+  };
+
   return {
+    actionType,
+    logLevel,
     source,
     output,
     publicDirectoryName,
     registryVersion: defaults.registryVersion,
     deploymentEnvironment,
-    validateOnly,
     configFile,
     externalRepositories,
+    serverManifest,
   };
 }
 
 module.exports = {
   PROJECT_CONFIG,
+  SUPPORTED_ACTION_TYPES,
   SUPPORTED_DEPLOYMENT_ENVIRONMENTS,
+  assertValidActionType,
   assertValidDeploymentEnvironment,
   getRuntimeConfig,
 };
@@ -37695,10 +37925,11 @@ const {
 } = __nccwpck_require__(6067);
 const { formatValidationPath, resolveWorkspacePath } = __nccwpck_require__(4068);
 const { writeDeploymentProfileFiles } = __nccwpck_require__(5089);
+const { createLogger } = __nccwpck_require__(1865);
 
 const REGISTRY_VERSION = PROJECT_CONFIG.runtime.defaults.registryVersion;
 
-function createValidator(ajv, schema) {
+function createValidator(ajv, schema, logger) {
   const validate = ajv.compile(schema);
   return (data, filename) => {
     const isValid = validate(data);
@@ -37706,9 +37937,9 @@ function createValidator(ajv, schema) {
       return true;
     }
 
-    console.error(`\n✗ Validation failed for ${filename}:`);
+    logger.error(`\n✗ Validation failed for ${filename}:`);
     for (const error of validate.errors || []) {
-      console.error(
+      logger.error(
         `  - ${formatValidationPath(error.instancePath)} ${error.message}`,
       );
     }
@@ -37739,15 +37970,15 @@ async function resolveSchemasDirectory(explicitPath) {
   );
 }
 
-async function loadSchemas(ajv, schemasDir) {
+async function loadSchemas(ajv, schemasDir, logger) {
   const [serverSchema, versionSchema] = await Promise.all([
     fs.readJson(path.join(schemasDir, 'server.schema.json')),
     fs.readJson(path.join(schemasDir, 'version.schema.json')),
   ]);
 
   return {
-    validateServer: createValidator(ajv, serverSchema),
-    validateVersion: createValidator(ajv, versionSchema),
+    validateServer: createValidator(ajv, serverSchema, logger),
+    validateVersion: createValidator(ajv, versionSchema, logger),
   };
 }
 
@@ -37814,13 +38045,18 @@ function normalizeExternalPath(entry) {
   return null;
 }
 
-async function resolveServerRoots(workspaceRoot, sourceServersDir, config) {
+async function resolveServerRoots(
+  workspaceRoot,
+  sourceServersDir,
+  config,
+  logger,
+) {
   const roots = [{ path: sourceServersDir, source: 'local' }];
 
   for (const [index, entry] of config.externalRepositories.entries()) {
     const rawPath = normalizeExternalPath(entry);
     if (!rawPath) {
-      console.warn(
+      logger.warn(
         `⚠ Skipping externalRepositories[${index}]: unsupported format`,
       );
       continue;
@@ -37828,13 +38064,13 @@ async function resolveServerRoots(workspaceRoot, sourceServersDir, config) {
 
     const resolvedPath = path.resolve(workspaceRoot, rawPath);
     if (!(await fs.pathExists(resolvedPath))) {
-      console.warn(`⚠ Skipping external path not found: ${resolvedPath}`);
+      logger.warn(`⚠ Skipping external path not found: ${resolvedPath}`);
       continue;
     }
 
     const stats = await fs.stat(resolvedPath);
     if (!stats.isDirectory()) {
-      console.warn(
+      logger.warn(
         `⚠ Skipping external path (not a directory): ${resolvedPath}`,
       );
       continue;
@@ -37852,7 +38088,7 @@ function readVersionFileNames(versionFiles) {
   );
 }
 
-async function readServerFromDirectory(serverDir, source, validators) {
+async function readServerFromDirectory(serverDir, source, validators, logger) {
   const serverName = path.basename(serverDir);
   const serverJsonPath = path.join(serverDir, 'server.json');
 
@@ -37864,7 +38100,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
   try {
     serverData = await fs.readJson(serverJsonPath);
   } catch (error) {
-    console.error(
+    logger.error(
       `✗ Failed to parse ${serverName}/server.json (${source}):`,
       error.message,
     );
@@ -37877,7 +38113,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
 
   const versionsDir = path.join(serverDir, 'versions');
   if (!(await fs.pathExists(versionsDir))) {
-    console.warn(
+    logger.warn(
       `⚠ Skipping ${serverName}: missing versions directory (${source})`,
     );
     return null;
@@ -37893,7 +38129,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
     try {
       versionData = await fs.readJson(versionPath);
     } catch (error) {
-      console.error(
+      logger.error(
         `✗ Failed to parse ${serverName}/versions/${versionFile}:`,
         error.message,
       );
@@ -37910,7 +38146,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
     }
 
     if (!semver.valid(versionData.version)) {
-      console.error(
+      logger.error(
         `✗ Invalid semantic version in ${serverName}/versions/${versionFile}: ${versionData.version}`,
       );
       continue;
@@ -37923,7 +38159,7 @@ async function readServerFromDirectory(serverDir, source, validators) {
   }
 
   if (versions.length === 0) {
-    console.warn(`⚠ Skipping ${serverName}: no valid versions (${source})`);
+    logger.warn(`⚠ Skipping ${serverName}: no valid versions (${source})`);
     return null;
   }
 
@@ -37943,17 +38179,19 @@ async function readServers(
   sourceServersDir,
   validators,
   config,
+  logger,
 ) {
   const roots = await resolveServerRoots(
     workspaceRoot,
     sourceServersDir,
     config,
+    logger,
   );
   const serversByName = new Map();
 
   for (const root of roots) {
     if (!(await fs.pathExists(root.path))) {
-      console.warn(`⚠ Skipping source path not found: ${root.path}`);
+      logger.warn(`⚠ Skipping source path not found: ${root.path}`);
       continue;
     }
 
@@ -37969,6 +38207,7 @@ async function readServers(
         serverDir,
         root.source,
         validators,
+        logger,
       );
       if (!server) {
         continue;
@@ -37976,14 +38215,14 @@ async function readServers(
 
       const existing = serversByName.get(server.name);
       if (existing) {
-        console.warn(
+        logger.warn(
           `⚠ Duplicate server "${server.name}" from ${server.source} ignored; using ${existing.source}`,
         );
         continue;
       }
 
       serversByName.set(server.name, server);
-      console.log(
+      logger.info(
         `✓ Loaded ${server.name} (${server.versions.length} version(s), ${server.source})`,
       );
     }
@@ -38148,6 +38387,7 @@ async function writeApiCompatJson(basePath, data) {
 }
 
 async function generateRegistry({
+  logger,
   outputRootDir,
   registryOutputDir,
   registryVersion,
@@ -38180,17 +38420,17 @@ async function generateRegistry({
       deploymentEnvironment,
     });
 
-  console.log(`✓ Wrote ${rootIndexPath}`);
-  console.log(`✓ Wrote ${versionIndexPath}`);
+  logger.info(`✓ Wrote ${rootIndexPath}`);
+  logger.info(`✓ Wrote ${versionIndexPath}`);
   if (deploymentEnvironment === 'cloudflare') {
-    console.log(`✓ Wrote ${cloudflareHeadersPath}`);
-    console.log(`✓ Wrote ${cloudflareRedirectsPath}`);
+    logger.info(`✓ Wrote ${cloudflareHeadersPath}`);
+    logger.info(`✓ Wrote ${cloudflareRedirectsPath}`);
   }
   if (deploymentEnvironment === 'github') {
-    console.log(`✓ Wrote ${noJekyllPath}`);
+    logger.info(`✓ Wrote ${noJekyllPath}`);
   }
   if (deploymentEnvironment === 'none') {
-    console.log(
+    logger.info(
       '✓ Skipped hosting profile files (_headers, _redirects, .nojekyll) for local/generic static hosting',
     );
   }
@@ -38288,6 +38528,7 @@ async function createVersionAlias(outputRootDir, registryVersion) {
 }
 
 async function runRegistryGeneration(options = {}) {
+  const logger = options.logger || createLogger('info');
   const { defaults, env: envKeys } = PROJECT_CONFIG.runtime;
   const workspaceRoot =
     options.workspaceRoot || process.env.GITHUB_WORKSPACE || process.cwd();
@@ -38324,38 +38565,38 @@ async function runRegistryGeneration(options = {}) {
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
 
-  console.log('🚀 Blackout Secure MCP Registry Engine\n');
-  console.log(`📁 Source servers path: ${sourceServersDir}`);
-  console.log(`📦 Output base path: ${outputBaseDir}`);
-  console.log(`📦 Registry output root: ${outputRootDir}`);
-  console.log(`🧾 Registry version path: ${registryOutputDir}\n`);
+  logger.info('🚀 Blackout Secure MCP Registry Engine\n');
+  logger.info(`📁 Source servers path: ${sourceServersDir}`);
+  logger.info(`📦 Output base path: ${outputBaseDir}`);
+  logger.info(`📦 Registry output root: ${outputRootDir}`);
+  logger.info(`🧾 Registry version path: ${registryOutputDir}\n`);
 
   const outputBaseName = path.basename(outputRootDir);
   if (outputBaseName === `v${registryVersion}`) {
-    console.warn(
+    logger.warn(
       `⚠ Output path appears to be a version directory (${outputRootDir}). Use an output base path (for example ./dist) so profile files and root index are generated correctly.\n`,
     );
   }
 
   if (deploymentEnvironment === 'cloudflare') {
-    console.log(
+    logger.info(
       '☁️ Deployment environment: cloudflare (_headers and _redirects will be generated)\n',
     );
   }
 
   if (deploymentEnvironment === 'github') {
-    console.log(
+    logger.info(
       '🐙 Deployment environment: github (.nojekyll will be generated for GitHub Pages)\n',
     );
   }
 
   if (deploymentEnvironment === 'none') {
-    console.log(
+    logger.info(
       '🧪 Deployment environment: none (host-agnostic static output; no platform profile files generated)\n',
     );
   }
 
-  const validators = await loadSchemas(ajv, schemasDir);
+  const validators = await loadSchemas(ajv, schemasDir, logger);
   const config = await loadConfig(
     configFile,
     registryVersion,
@@ -38367,20 +38608,22 @@ async function runRegistryGeneration(options = {}) {
     sourceServersDir,
     validators,
     config,
+    logger,
   );
 
   if (servers.length === 0) {
     throw new Error('No valid servers found');
   }
 
-  if (options.validateOnly) {
-    console.log(
+  if (options.actionType === 'validate_registry') {
+    logger.info(
       `\n✓ Validation complete: ${servers.length} server(s) validated successfully`,
     );
     return { validated: true, serverCount: servers.length, registryOutputDir };
   }
 
   await generateRegistry({
+    logger,
     outputRootDir,
     registryOutputDir,
     registryVersion,
@@ -38389,11 +38632,11 @@ async function runRegistryGeneration(options = {}) {
   });
   await createVersionAlias(outputRootDir, registryVersion);
 
-  console.log(`\n✓ Registry generated successfully at ${registryOutputDir}`);
-  console.log(
+  logger.info(`\n✓ Registry generated successfully at ${registryOutputDir}`);
+  logger.info(
     `✓ Created API compatibility alias at ${path.join(outputRootDir, 'v0')}`,
   );
-  console.log(`✓ Total servers: ${servers.length}`);
+  logger.info(`✓ Total servers: ${servers.length}`);
 
   return { validated: true, serverCount: servers.length, registryOutputDir };
 }
@@ -38401,6 +38644,325 @@ async function runRegistryGeneration(options = {}) {
 module.exports = {
   REGISTRY_VERSION,
   runRegistryGeneration,
+};
+
+
+/***/ }),
+
+/***/ 4934:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Blackout Secure MCP Registry Engine
+ * Copyright © 2025-2026 Blackout Secure
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+const path = __nccwpck_require__(6928);
+const fs = __nccwpck_require__(2136);
+const Ajv = __nccwpck_require__(2463);
+const addFormats = __nccwpck_require__(2815);
+const semver = __nccwpck_require__(2088);
+const { formatValidationPath, resolveWorkspacePath } = __nccwpck_require__(4068);
+const { createLogger } = __nccwpck_require__(1865);
+
+function createValidator(ajv, schema, logger) {
+  const validate = ajv.compile(schema);
+  return (data, filename) => {
+    const isValid = validate(data);
+    if (isValid) {
+      return true;
+    }
+
+    logger.error(`\n✗ Validation failed for ${filename}:`);
+    for (const error of validate.errors || []) {
+      logger.error(
+        `  - ${formatValidationPath(error.instancePath)} ${error.message}`,
+      );
+    }
+    return false;
+  };
+}
+
+async function resolveSchemasDirectory(explicitPath) {
+  if (explicitPath) {
+    return explicitPath;
+  }
+
+  const candidates = [
+    process.env.GITHUB_ACTION_PATH
+      ? path.join(process.env.GITHUB_ACTION_PATH, 'schemas')
+      : null,
+    __nccwpck_require__.ab + "schemas",
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (await fs.pathExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    'Failed to locate schemas directory. Provide an explicit schemasDir path or package schemas under src/schemas.',
+  );
+}
+
+async function loadValidators(schemasDir, logger) {
+  const resolvedSchemasDir = await resolveSchemasDirectory(schemasDir);
+  const ajv = new Ajv({ allErrors: true, strict: false });
+  addFormats(ajv);
+
+  const [serverSchema, versionSchema] = await Promise.all([
+    fs.readJson(path.join(resolvedSchemasDir, 'server.schema.json')),
+    fs.readJson(path.join(resolvedSchemasDir, 'version.schema.json')),
+  ]);
+
+  return {
+    validateServer: createValidator(ajv, serverSchema, logger),
+    validateVersion: createValidator(ajv, versionSchema, logger),
+  };
+}
+
+function buildServerManifest(options) {
+  if (!options.serverName) {
+    throw new Error('server_name is required for generate_server_manifest');
+  }
+
+  if (!options.serverDescription) {
+    throw new Error(
+      'server_description is required for generate_server_manifest',
+    );
+  }
+
+  const manifest = {
+    name: options.serverName,
+    description: options.serverDescription,
+  };
+
+  if (options.serverTitle) {
+    manifest.title = options.serverTitle;
+  }
+
+  if (options.serverWebsiteUrl) {
+    manifest.websiteUrl = options.serverWebsiteUrl;
+  }
+
+  if (options.repositoryUrl) {
+    manifest.repository = {
+      url: options.repositoryUrl,
+      source: options.repositorySource || 'github',
+    };
+
+    if (options.repositorySubfolder) {
+      manifest.repository.subfolder = options.repositorySubfolder;
+    }
+  }
+
+  return manifest;
+}
+
+function buildVersionManifest(options) {
+  const version = options.serverVersion || '1.0.0';
+  if (!semver.valid(version)) {
+    throw new Error(`Invalid semantic version for server_version: ${version}`);
+  }
+
+  const serverSlug = options.serverSlug || 'server';
+  const fallbackIdentifier = `mcp-${serverSlug.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
+
+  const manifest = {
+    version,
+    packages: [
+      {
+        registryType: options.packageRegistryType || 'npm',
+        identifier: options.packageIdentifier || fallbackIdentifier,
+        version,
+        transport: {
+          type: options.packageTransportType || 'stdio',
+        },
+      },
+    ],
+  };
+
+  if (options.releaseDate) {
+    manifest.releaseDate = options.releaseDate;
+  }
+
+  return manifest;
+}
+
+function mergeManifest(existing, generated) {
+  if (!existing || typeof existing !== 'object') {
+    return generated;
+  }
+
+  const merged = {
+    ...existing,
+    ...generated,
+  };
+
+  if (existing.repository || generated.repository) {
+    merged.repository = {
+      ...(existing.repository || {}),
+      ...(generated.repository || {}),
+    };
+  }
+
+  return merged;
+}
+
+async function readJsonIfExists(filePath) {
+  if (!(await fs.pathExists(filePath))) {
+    return null;
+  }
+
+  return fs.readJson(filePath);
+}
+
+async function generateServerManifest(options = {}) {
+  const logger = options.logger || createLogger('info');
+  const workspaceRoot =
+    options.workspaceRoot || process.env.GITHUB_WORKSPACE || process.cwd();
+  const { sourceDir, schemasDir, serverManifest } = options;
+  const slug = serverManifest?.serverSlug;
+  if (!slug || !String(slug).trim()) {
+    throw new Error('server_slug is required for generate_server_manifest');
+  }
+
+  const sourceServersDir = resolveWorkspacePath(
+    workspaceRoot,
+    sourceDir,
+    'servers',
+  );
+
+  const serverDir = path.join(sourceServersDir, slug);
+  const versionsDir = path.join(serverDir, 'versions');
+  await fs.ensureDir(versionsDir);
+
+  const serverJsonPath = path.join(serverDir, 'server.json');
+  const generatedServer = buildServerManifest(serverManifest);
+  const existingServer = await readJsonIfExists(serverJsonPath);
+  const mergedServer = mergeManifest(existingServer, generatedServer);
+  await fs.writeJson(serverJsonPath, mergedServer, { spaces: 2 });
+
+  const versionManifest = buildVersionManifest(serverManifest);
+  const versionJsonPath = path.join(
+    versionsDir,
+    `${versionManifest.version}.json`,
+  );
+  const existingVersion = await readJsonIfExists(versionJsonPath);
+  const mergedVersion = mergeManifest(existingVersion, versionManifest);
+  await fs.writeJson(versionJsonPath, mergedVersion, { spaces: 2 });
+
+  const validators = await loadValidators(schemasDir, logger);
+  const isServerValid = validators.validateServer(
+    mergedServer,
+    `${slug}/server.json`,
+  );
+  const isVersionValid = validators.validateVersion(
+    mergedVersion,
+    `${slug}/versions/${versionManifest.version}.json`,
+  );
+
+  if (!isServerValid || !isVersionValid) {
+    throw new Error('Generated server manifests are not schema-valid');
+  }
+
+  logger.info(`✓ Generated or updated ${slug}/server.json`);
+  logger.info(
+    `✓ Generated or updated ${slug}/versions/${versionManifest.version}.json`,
+  );
+
+  return {
+    generated: true,
+    serverSlug: slug,
+    serverJsonPath,
+    versionJsonPath,
+    version: versionManifest.version,
+  };
+}
+
+async function validateServerManifest(options = {}) {
+  const logger = options.logger || createLogger('info');
+  const workspaceRoot =
+    options.workspaceRoot || process.env.GITHUB_WORKSPACE || process.cwd();
+  const { sourceDir, schemasDir, serverManifest } = options;
+  const slug = serverManifest?.serverSlug;
+  if (!slug || !String(slug).trim()) {
+    throw new Error('server_slug is required for validate_server_manifest');
+  }
+
+  const sourceServersDir = resolveWorkspacePath(
+    workspaceRoot,
+    sourceDir,
+    'servers',
+  );
+
+  const serverDir = path.join(sourceServersDir, slug);
+  const serverJsonPath = path.join(serverDir, 'server.json');
+  const versionsDir = path.join(serverDir, 'versions');
+
+  if (!(await fs.pathExists(serverJsonPath))) {
+    throw new Error(`Missing server manifest: ${serverJsonPath}`);
+  }
+
+  if (!(await fs.pathExists(versionsDir))) {
+    throw new Error(`Missing versions directory: ${versionsDir}`);
+  }
+
+  const validators = await loadValidators(schemasDir, logger);
+  const serverData = await fs.readJson(serverJsonPath);
+  const isServerValid = validators.validateServer(
+    serverData,
+    `${slug}/server.json`,
+  );
+
+  const versionFiles = (await fs.readdir(versionsDir)).filter(
+    (filename) => filename.endsWith('.json') && filename !== 'latest.json',
+  );
+
+  if (versionFiles.length === 0) {
+    throw new Error(`No version manifests found in ${versionsDir}`);
+  }
+
+  let validVersionCount = 0;
+  for (const versionFile of versionFiles) {
+    const versionPath = path.join(versionsDir, versionFile);
+    const versionData = await fs.readJson(versionPath);
+    const versionValid = validators.validateVersion(
+      versionData,
+      `${slug}/versions/${versionFile}`,
+    );
+
+    if (!semver.valid(versionData.version)) {
+      throw new Error(
+        `Invalid semantic version in ${slug}/versions/${versionFile}: ${versionData.version}`,
+      );
+    }
+
+    if (versionValid) {
+      validVersionCount += 1;
+    }
+  }
+
+  if (!isServerValid || validVersionCount === 0) {
+    throw new Error(`Validation failed for server slug: ${slug}`);
+  }
+
+  logger.info(
+    `✓ Validation complete: ${slug} (${validVersionCount} version manifest(s) valid)`,
+  );
+
+  return {
+    validated: true,
+    serverSlug: slug,
+    versionCount: validVersionCount,
+  };
+}
+
+module.exports = {
+  generateServerManifest,
+  validateServerManifest,
 };
 
 
@@ -38448,20 +39010,41 @@ function formatValidationPath(instancePath) {
 
 function parseCliArgs(argv = process.argv.slice(2)) {
   const result = {
+    actionType: undefined,
+    logLevel: undefined,
     source: undefined,
     output: undefined,
     publicDirectory: undefined,
     deploymentEnvironment: undefined,
     configFile: undefined,
-    validateOnly: false,
+    serverSlug: undefined,
+    serverName: undefined,
+    serverTitle: undefined,
+    serverDescription: undefined,
+    serverWebsiteUrl: undefined,
+    repositoryUrl: undefined,
+    repositorySource: undefined,
+    repositorySubfolder: undefined,
+    serverVersion: undefined,
+    releaseDate: undefined,
+    packageRegistryType: undefined,
+    packageIdentifier: undefined,
+    packageTransportType: undefined,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const nextArg = argv[index + 1];
 
-    if (arg === '--validate-only') {
-      result.validateOnly = true;
+    if (arg === '--action-type' && nextArg) {
+      result.actionType = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--log-level' && nextArg) {
+      result.logLevel = nextArg;
+      index += 1;
       continue;
     }
 
@@ -38491,6 +39074,84 @@ function parseCliArgs(argv = process.argv.slice(2)) {
 
     if (arg === '--config' && nextArg) {
       result.configFile = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-slug' && nextArg) {
+      result.serverSlug = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-name' && nextArg) {
+      result.serverName = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-title' && nextArg) {
+      result.serverTitle = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-description' && nextArg) {
+      result.serverDescription = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-website-url' && nextArg) {
+      result.serverWebsiteUrl = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--repository-url' && nextArg) {
+      result.repositoryUrl = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--repository-source' && nextArg) {
+      result.repositorySource = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--repository-subfolder' && nextArg) {
+      result.repositorySubfolder = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-version' && nextArg) {
+      result.serverVersion = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--release-date' && nextArg) {
+      result.releaseDate = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--package-registry-type' && nextArg) {
+      result.packageRegistryType = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--package-identifier' && nextArg) {
+      result.packageIdentifier = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--package-transport-type' && nextArg) {
+      result.packageTransportType = nextArg;
       index += 1;
       continue;
     }
@@ -41421,21 +42082,63 @@ var __webpack_exports__ = {};
 const core = __nccwpck_require__(7484);
 const { runRegistryGeneration } = __nccwpck_require__(3970);
 const { getRuntimeConfig } = __nccwpck_require__(6067);
+const {
+  generateServerManifest,
+  validateServerManifest,
+} = __nccwpck_require__(4934);
+const { createLogger } = __nccwpck_require__(1865);
 
 async function run() {
   try {
     const runtimeConfig = getRuntimeConfig(core);
-
-    await runRegistryGeneration({
-      sourceDir: runtimeConfig.source,
-      outputDir: runtimeConfig.output,
+    const logger = createLogger(runtimeConfig.logLevel);
+    logger.debug('Resolved runtime configuration', {
+      actionType: runtimeConfig.actionType,
+      source: runtimeConfig.source,
+      output: runtimeConfig.output,
       publicDirectoryName: runtimeConfig.publicDirectoryName,
-      registryVersion: runtimeConfig.registryVersion,
       deploymentEnvironment: runtimeConfig.deploymentEnvironment,
-      validateOnly: runtimeConfig.validateOnly,
       configFile: runtimeConfig.configFile,
-      externalRepositories: runtimeConfig.externalRepositories,
+      logLevel: runtimeConfig.logLevel,
     });
+
+    if (
+      runtimeConfig.actionType === 'generate_registry' ||
+      runtimeConfig.actionType === 'validate_registry'
+    ) {
+      await runRegistryGeneration({
+        actionType: runtimeConfig.actionType,
+        logger,
+        sourceDir: runtimeConfig.source,
+        outputDir: runtimeConfig.output,
+        publicDirectoryName: runtimeConfig.publicDirectoryName,
+        registryVersion: runtimeConfig.registryVersion,
+        deploymentEnvironment: runtimeConfig.deploymentEnvironment,
+        configFile: runtimeConfig.configFile,
+        externalRepositories: runtimeConfig.externalRepositories,
+      });
+      return;
+    }
+
+    if (runtimeConfig.actionType === 'generate_server_manifest') {
+      await generateServerManifest({
+        logger,
+        sourceDir: runtimeConfig.source,
+        serverManifest: runtimeConfig.serverManifest,
+      });
+      return;
+    }
+
+    if (runtimeConfig.actionType === 'validate_server_manifest') {
+      await validateServerManifest({
+        logger,
+        sourceDir: runtimeConfig.source,
+        serverManifest: runtimeConfig.serverManifest,
+      });
+      return;
+    }
+
+    throw new Error(`Unsupported action type: ${runtimeConfig.actionType}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (process.env.GITHUB_ACTIONS === 'true') {

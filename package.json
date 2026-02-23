@@ -6,8 +6,8 @@
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "npm run clean && ncc build src/index.js -o dist",
-    "generate": "node src/index.js",
-    "validate": "node src/index.js --validate-only",
+    "generate": "node src/index.js --action-type generate_registry",
+    "validate": "node src/index.js --action-type validate_registry",
     "test": "mocha",
     "lint": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md,yml,yaml}\"",

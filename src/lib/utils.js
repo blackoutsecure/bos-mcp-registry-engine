@@ -37,20 +37,41 @@ function formatValidationPath(instancePath) {
 
 function parseCliArgs(argv = process.argv.slice(2)) {
   const result = {
+    actionType: undefined,
+    logLevel: undefined,
     source: undefined,
     output: undefined,
     publicDirectory: undefined,
     deploymentEnvironment: undefined,
     configFile: undefined,
-    validateOnly: false,
+    serverSlug: undefined,
+    serverName: undefined,
+    serverTitle: undefined,
+    serverDescription: undefined,
+    serverWebsiteUrl: undefined,
+    repositoryUrl: undefined,
+    repositorySource: undefined,
+    repositorySubfolder: undefined,
+    serverVersion: undefined,
+    releaseDate: undefined,
+    packageRegistryType: undefined,
+    packageIdentifier: undefined,
+    packageTransportType: undefined,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const nextArg = argv[index + 1];
 
-    if (arg === '--validate-only') {
-      result.validateOnly = true;
+    if (arg === '--action-type' && nextArg) {
+      result.actionType = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--log-level' && nextArg) {
+      result.logLevel = nextArg;
+      index += 1;
       continue;
     }
 
@@ -80,6 +101,84 @@ function parseCliArgs(argv = process.argv.slice(2)) {
 
     if (arg === '--config' && nextArg) {
       result.configFile = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-slug' && nextArg) {
+      result.serverSlug = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-name' && nextArg) {
+      result.serverName = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-title' && nextArg) {
+      result.serverTitle = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-description' && nextArg) {
+      result.serverDescription = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-website-url' && nextArg) {
+      result.serverWebsiteUrl = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--repository-url' && nextArg) {
+      result.repositoryUrl = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--repository-source' && nextArg) {
+      result.repositorySource = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--repository-subfolder' && nextArg) {
+      result.repositorySubfolder = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--server-version' && nextArg) {
+      result.serverVersion = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--release-date' && nextArg) {
+      result.releaseDate = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--package-registry-type' && nextArg) {
+      result.packageRegistryType = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--package-identifier' && nextArg) {
+      result.packageIdentifier = nextArg;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--package-transport-type' && nextArg) {
+      result.packageTransportType = nextArg;
       index += 1;
       continue;
     }
