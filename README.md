@@ -62,64 +62,71 @@ jobs:
 
 The table below is aligned with [action.yml](action.yml) inputs.
 
-| Input                     | Required | Default              | Description                             |
-| ------------------------- | -------- | -------------------- | --------------------------------------- |
-| `action_type`             | Yes      | _(none)_             | Operation mode                          |
-| `log_level`               | No       | `info`               | Console logging level                   |
-| `source`                  | No       | `./servers`          | Servers root path                       |
-| `output_directory`        | No       | `dist`               | Base output directory path              |
-| `output`                  | No       | `public`             | Registry public folder                  |
-| `deployment_environment`  | No       | `github`             | Hosting profile                         |
-| `config`                  | No       | _(none)_             | Registry config file                    |
-| `upload_artifacts`        | No       | `true`               | Upload generated registry as artifact   |
-| `artifact_name`           | No       | `mcp-registry-files` | Artifact name when upload enabled       |
-| `artifact_retention_days` | No       | _(none)_             | Retention days (positive integer)       |
-| `server_slug`             | No       | _(none)_             | Server folder slug                      |
-| `server_name`             | No       | _(none)_             | Server manifest name                    |
-| `server_description`      | No       | _(none)_             | Server description                      |
-| `server_title`            | No       | _(none)_             | Server title                            |
-| `server_website_url`      | No       | _(none)_             | Server website URL                      |
-| `repository_url`          | No       | _(none)_             | Repository URL                          |
-| `repository_source`       | No       | `github`             | Repository source                       |
-| `repository_subfolder`    | No       | _(none)_             | Repository subfolder                    |
-| `server_version`          | No       | `1.0.0`              | Version manifest value                  |
-| `release_date`            | No       | _(none)_             | Release date                            |
-| `package_registry_type`   | No       | `npm`                | Package registry type                   |
-| `package_identifier`      | No       | _(none)_             | Package identifier                      |
-| `package_transport_type`  | No       | `stdio`              | Package transport type                  |
+| Input                     | Required | Default              | Description                           |
+| ------------------------- | -------- | -------------------- | ------------------------------------- |
+| `action_type`             | Yes      | _(none)_             | Operation mode                        |
+| `log_level`               | No       | `info`               | Console logging level                 |
+| `source`                  | No       | `./servers`          | Servers root path                     |
+| `output_directory`        | No       | `dist`               | Base output directory path            |
+| `output`                  | No       | `public`             | Registry public folder                |
+| `deployment_environment`  | No       | `github`             | Hosting profile                       |
+| `config`                  | No       | _(none)_             | Registry config file                  |
+| `upload_artifacts`        | No       | `true`               | Upload generated registry as artifact |
+| `artifact_name`           | No       | `mcp-registry-files` | Artifact name when upload enabled     |
+| `artifact_retention_days` | No       | `1`                  | Retention days                        |
+| `server_slug`             | No       | _(none)_             | Server folder slug                    |
+| `server_name`             | No       | _(none)_             | Server manifest name                  |
+| `server_description`      | No       | _(none)_             | Server description                    |
+| `server_title`            | No       | _(none)_             | Server title                          |
+| `server_website_url`      | No       | _(none)_             | Server website URL                    |
+| `repository_url`          | No       | _(none)_             | Repository URL                        |
+| `repository_source`       | No       | `github`             | Repository source                     |
+| `repository_subfolder`    | No       | _(none)_             | Repository subfolder                  |
+| `server_version`          | No       | `1.0.0`              | Version manifest value                |
+| `release_date`            | No       | _(none)_             | Release date                          |
+| `package_registry_type`   | No       | `npm`                | Package registry type                 |
+| `package_identifier`      | No       | _(none)_             | Package identifier                    |
+| `package_transport_type`  | No       | `stdio`              | Package transport type                |
 
 Input details:
 
 - `action_type`: `generate_registry`, `validate_registry`, `generate_server_manifest`, `validate_server_manifest`.
 - `log_level`: `debug`, `info`, `warn`, `error`.
 - `output_directory`, `output`, and `deployment_environment` apply to registry actions.
-- `upload_artifacts`, `artifact_name`, and `artifact_retention_days` apply to `generate_registry` only.
+- If the configured `source` directory does not exist, `generate_registry` creates an empty source directory and generates an empty registry output (instead of crashing).
+- `upload_artifacts`, `artifact_name`, `artifact_retention_days`, `commit_generated_artifacts`, `artifact_committer_name`, and `artifact_committer_email` apply to `generate_registry` only.
+- `commit_generated_artifacts`: defaults to `true`; stages, commits, and pushes generated output from the checked-out repository workspace; requires `upload_artifacts=true`.
+- `artifact_retention_days`: must be an integer between `1` and `400`; invalid values fail the action during configuration.
+- GitHub retention defaults are controlled by your repository/organization policy (see [GitHub artifact/log retention policy docs](https://docs.github.com/en/organizations/managing-organization-settings/configuring-the-retention-period-for-github-actions-artifacts-and-logs-in-your-organization)).
+- This repository/action default for `artifact_retention_days` is `1`.
+- `artifact_committer_name`: optional; defaults to `github-actions[bot]` when local `git user.name` is unset.
+- `artifact_committer_email`: optional; defaults to `41898282+github-actions[bot]@users.noreply.github.com` when local `git user.email` is unset.
 - `server_slug` is required for server-manifest actions.
 - `server_name` and `server_description` are required for `generate_server_manifest`.
 - `config` supports `version` and `externalRepositories`.
 
 ### Inputs by `action_type`
 
-| Input Group              | generate_registry | validate_registry | generate_server_manifest | validate_server_manifest |
-| ------------------------ | ----------------- | ----------------- | ------------------------ | ------------------------ |
-| `source`                 | Required          | Required          | Required                 | Required                 |
-| `log_level`              | Optional          | Optional          | Optional                 | Optional                 |
-| `output_directory`       | Optional          | Optional          | N/A                      | N/A                      |
-| `output`                 | Optional          | Optional          | N/A                      | N/A                      |
-| `deployment_environment` | Optional          | Optional          | N/A                      | N/A                      |
-| `config`                 | Optional          | Optional          | N/A                      | N/A                      |
-| `upload_artifacts`       | Optional          | N/A               | N/A                      | N/A                      |
-| `artifact_name`          | Optional          | N/A               | N/A                      | N/A                      |
-| `artifact_retention_days`| Optional          | N/A               | N/A                      | N/A                      |
-| `server_slug`            | N/A               | N/A               | Required                 | Required                 |
-| `server_name`            | N/A               | N/A               | Required                 | N/A                      |
-| `server_description`     | N/A               | N/A               | Required                 | N/A                      |
-| `server_title`           | N/A               | N/A               | Optional                 | N/A                      |
-| `server_website_url`     | N/A               | N/A               | Optional                 | N/A                      |
-| `repository_*`           | N/A               | N/A               | Optional                 | N/A                      |
-| `server_version`         | N/A               | N/A               | Optional                 | N/A                      |
-| `release_date`           | N/A               | N/A               | Optional                 | N/A                      |
-| `package_*`              | N/A               | N/A               | Optional                 | N/A                      |
+| Input Group               | generate_registry | validate_registry | generate_server_manifest | validate_server_manifest |
+| ------------------------- | ----------------- | ----------------- | ------------------------ | ------------------------ |
+| `source`                  | Required          | Required          | Required                 | Required                 |
+| `log_level`               | Optional          | Optional          | Optional                 | Optional                 |
+| `output_directory`        | Optional          | Optional          | N/A                      | N/A                      |
+| `output`                  | Optional          | Optional          | N/A                      | N/A                      |
+| `deployment_environment`  | Optional          | Optional          | N/A                      | N/A                      |
+| `config`                  | Optional          | Optional          | N/A                      | N/A                      |
+| `upload_artifacts`        | Optional          | N/A               | N/A                      | N/A                      |
+| `artifact_name`           | Optional          | N/A               | N/A                      | N/A                      |
+| `artifact_retention_days` | Optional          | N/A               | N/A                      | N/A                      |
+| `server_slug`             | N/A               | N/A               | Required                 | Required                 |
+| `server_name`             | N/A               | N/A               | Required                 | N/A                      |
+| `server_description`      | N/A               | N/A               | Required                 | N/A                      |
+| `server_title`            | N/A               | N/A               | Optional                 | N/A                      |
+| `server_website_url`      | N/A               | N/A               | Optional                 | N/A                      |
+| `repository_*`            | N/A               | N/A               | Optional                 | N/A                      |
+| `server_version`          | N/A               | N/A               | Optional                 | N/A                      |
+| `release_date`            | N/A               | N/A               | Optional                 | N/A                      |
+| `package_*`               | N/A               | N/A               | Optional                 | N/A                      |
 
 Legend:
 
@@ -129,12 +136,12 @@ Legend:
 
 ### `action_type` values
 
-| Value                    | Behavior              | Generates files |
-| ------------------------ | --------------------- | --------------- |
-| generate_registry        | Validate + generate   | Yes             |
-| validate_registry        | Validate only         | No              |
-| generate_server_manifest | Generate/update files | Yes             |
-| validate_server_manifest | Validate one server   | No              |
+| Value                    | Behavior              | Generates files | Description                                                     |
+| ------------------------ | --------------------- | --------------- | --------------------------------------------------------------- |
+| generate_registry        | Validate + generate   | Yes             | Validates discovered manifests, then writes registry artifacts. |
+| validate_registry        | Validate only         | No              | Validates discovered manifests without writing output files.    |
+| generate_server_manifest | Generate/update files | Yes             | Generates or updates one server manifest set, then validates.   |
+| validate_server_manifest | Validate one server   | No              | Validates manifests for a specific `server_slug` only.          |
 
 Notes:
 
@@ -281,7 +288,12 @@ You can let this action upload the generated registry directory as a GitHub Acti
     upload_artifacts: 'true'
     artifact_name: 'mcp-registry-public'
     artifact_retention_days: '7'
+    commit_generated_artifacts: 'true'
+    artifact_committer_name: 'github-actions[bot]'
+    artifact_committer_email: '41898282+github-actions[bot]@users.noreply.github.com'
 ```
+
+`commit_generated_artifacts` stages, commits, and pushes generated files from the checked-out repository workspace.
 
 ### Workflow example: generate/update server manifests in an MCP server repo
 
@@ -357,10 +369,7 @@ servers/
       <semver>.json
 ```
 
-Sample files:
-
-- [servers/github/server.json](servers/github/server.json)
-- [servers/github/versions/1.0.0.json](servers/github/versions/1.0.0.json)
+Create your own server manifests using this layout in your repository.
 
 ## Manifest format
 
@@ -533,7 +542,7 @@ This repository is for static registry generation and Marketplace Action packagi
 npm run check
 ```
 
-This runs build (with clean `dist` for action packaging), lint, format check, validation, tests, and production audit gate.
+This runs lint, format check, validation, tests, build, and production audit gate.
 
 ## License
 

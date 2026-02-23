@@ -646,6 +646,13 @@ async function runRegistryGeneration(options = {}) {
 
   assertValidDeploymentEnvironment(deploymentEnvironment);
 
+  if (!(await fs.pathExists(sourceServersDir))) {
+    await fs.ensureDir(sourceServersDir);
+    logger.warn(
+      `⚠ Source servers path not found; created empty directory at ${sourceServersDir}`,
+    );
+  }
+
   const configFile = await resolveConfigFilePath(
     workspaceRoot,
     options.configFile || process.env[envKeys.configFile],

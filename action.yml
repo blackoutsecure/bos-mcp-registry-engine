@@ -51,6 +51,19 @@ inputs:
   artifact_retention_days:
     description: 'Optional artifact retention in days (positive integer) when upload_artifacts is enabled'
     required: false
+    default: '1'
+  commit_generated_artifacts:
+    description: 'Commit and push generated registry artifacts from the checked-out repository (generate_registry only; requires upload_artifacts=true)'
+    required: false
+    default: 'true'
+  artifact_committer_name:
+    description: 'Git committer name used when commit_generated_artifacts is enabled and local git user.name is unset'
+    required: false
+    default: 'github-actions[bot]'
+  artifact_committer_email:
+    description: 'Git committer email used when commit_generated_artifacts is enabled and local git user.email is unset'
+    required: false
+    default: '41898282+github-actions[bot]@users.noreply.github.com'
   server_slug:
     description: 'Server folder slug under source (required for generate_server_manifest and validate_server_manifest)'
     required: false
