@@ -141,6 +141,7 @@ Notes:
 - `generate_registry`: validates all discovered manifests before writing registry artifacts.
 - `validate_registry`: validates all discovered manifests and exits without writing output.
 - `generate_server_manifest`: generates/updates files and then validates generated manifests before success.
+- `generate_server_manifest`: updates `versions/latest.json` to match the generated `server_version` manifest.
 - `validate_server_manifest`: validates existing manifests for `server_slug` and fails on schema/version errors.
 
 If validation fails, the action exits non-zero and workflow steps fail.

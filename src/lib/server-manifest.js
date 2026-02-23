@@ -196,9 +196,11 @@ async function generateServerManifest(options = {}) {
     versionsDir,
     `${versionManifest.version}.json`,
   );
+  const latestVersionJsonPath = path.join(versionsDir, 'latest.json');
   const existingVersion = await readJsonIfExists(versionJsonPath);
   const mergedVersion = mergeManifest(existingVersion, versionManifest);
   await fs.writeJson(versionJsonPath, mergedVersion, { spaces: 2 });
+  await fs.writeJson(latestVersionJsonPath, mergedVersion, { spaces: 2 });
 
   const validators = await loadValidators(schemasDir, logger);
   const isServerValid = validators.validateServer(
@@ -218,12 +220,14 @@ async function generateServerManifest(options = {}) {
   logger.info(
     `✓ Generated or updated ${slug}/versions/${versionManifest.version}.json`,
   );
+  logger.info(`✓ Generated or updated ${slug}/versions/latest.json`);
 
   return {
     generated: true,
     serverSlug: slug,
     serverJsonPath,
     versionJsonPath,
+    latestVersionJsonPath,
     version: versionManifest.version,
   };
 }
