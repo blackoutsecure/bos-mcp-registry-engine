@@ -134,6 +134,34 @@ function normalizeActionType(value, fallback = 'generate_registry') {
   return String(value).trim().toLowerCase();
 }
 
+function normalizeActionPublicDirectory(value, defaults) {
+  if (!value || !String(value).trim()) {
+    return defaults.publicDirectoryName;
+  }
+
+  const normalizedValue = String(value)
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\.\//, '')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '');
+
+  if (!normalizedValue) {
+    return defaults.publicDirectoryName;
+  }
+
+  const outputPrefix = `${String(defaults.output).replace(/\\/g, '/')}/`;
+  if (normalizedValue === defaults.output) {
+    return defaults.publicDirectoryName;
+  }
+
+  if (normalizedValue.startsWith(outputPrefix)) {
+    return normalizedValue.slice(outputPrefix.length) || defaults.publicDirectoryName;
+  }
+
+  return normalizedValue;
+}
+
 function assertValidActionType(actionType) {
   if (!SUPPORTED_ACTION_TYPES.includes(actionType)) {
     throw new Error(
@@ -190,9 +218,12 @@ function getRuntimeConfig(
     : cliArgs.output || outputEnv || defaults.output;
 
   const publicDirectoryName = isGitHubActionRuntime
-    ? core.getInput(inputs.output) ||
-      publicDirectoryEnv ||
-      defaults.publicDirectoryName
+    ? normalizeActionPublicDirectory(
+        core.getInput(inputs.output) ||
+          publicDirectoryEnv ||
+          defaults.publicDirectoryName,
+        defaults,
+      )
     : cliArgs.publicDirectory ||
       publicDirectoryEnv ||
       defaults.publicDirectoryName;

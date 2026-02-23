@@ -140,6 +140,44 @@ describe('project-config', () => {
     expect(config.publicDirectoryName).to.equal('registry-site');
   });
 
+  it('normalizes output input when it includes dist prefix in GitHub Actions', () => {
+    const actionCore = {
+      getInput(name) {
+        const values = {
+          output: 'dist/public',
+        };
+
+        return values[name] || '';
+      },
+    };
+
+    const config = getRuntimeConfig(actionCore, [], {
+      GITHUB_ACTIONS: 'true',
+    });
+
+    expect(config.output).to.equal('dist');
+    expect(config.publicDirectoryName).to.equal('public');
+  });
+
+  it('normalizes output input with leading ./ in GitHub Actions', () => {
+    const actionCore = {
+      getInput(name) {
+        const values = {
+          output: './dist/public',
+        };
+
+        return values[name] || '';
+      },
+    };
+
+    const config = getRuntimeConfig(actionCore, [], {
+      GITHUB_ACTIONS: 'true',
+    });
+
+    expect(config.output).to.equal('dist');
+    expect(config.publicDirectoryName).to.equal('public');
+  });
+
   it('supports log level from cli', () => {
     const config = getRuntimeConfig(
       core,
