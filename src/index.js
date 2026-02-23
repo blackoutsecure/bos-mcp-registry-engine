@@ -5,6 +5,7 @@
  */
 
 const core = require('@actions/core');
+const { version: appVersion } = require('../package.json');
 const { runRegistryGeneration } = require('./lib/registry-generator');
 const { getRuntimeConfig } = require('./lib/project-config');
 const {
@@ -19,6 +20,9 @@ async function run() {
   try {
     const runtimeConfig = getRuntimeConfig(core);
     const logger = createLogger(runtimeConfig.logLevel);
+    logger.info(
+      `Running bos-mcp-registry-engine v${appVersion} (log level: ${logger.level})`,
+    );
     logger.debug('Resolved runtime configuration', {
       actionType: runtimeConfig.actionType,
       source: runtimeConfig.source,

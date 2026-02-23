@@ -26,7 +26,7 @@ describe('index generate run', () => {
   it('creates dist/public output when generate action runs', async () => {
     const indexFilePath = path.join(PROJECT_ROOT, 'src', 'index.js');
 
-    await execFileAsync(
+    const { stdout } = await execFileAsync(
       'node',
       [
         indexFilePath,
@@ -47,6 +47,11 @@ describe('index generate run', () => {
           GITHUB_WORKSPACE: workspaceRoot,
         },
       },
+    );
+
+    const { version } = require('../package.json');
+    expect(stdout).to.include(
+      `Running bos-mcp-registry-engine v${version} (log level: info)`,
     );
 
     const outputRoot = resolveOutputPath(workspaceRoot);
