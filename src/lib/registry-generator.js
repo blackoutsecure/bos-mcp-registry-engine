@@ -476,6 +476,25 @@ async function writeApiCompatJson(basePath, data) {
   ]);
 }
 
+async function listFilesRecursively(rootDir) {
+  const entries = await fs.readdir(rootDir);
+  const files = [];
+
+  for (const entry of entries) {
+    const entryPath = path.join(rootDir, entry);
+    const stats = await fs.stat(entryPath);
+
+    if (stats.isDirectory()) {
+      files.push(...(await listFilesRecursively(entryPath)));
+      continue;
+    }
+
+    files.push(entryPath);
+  }
+
+  return files;
+}
+
 async function generateRegistry({
   logger,
   outputRootDir,
@@ -484,6 +503,11 @@ async function generateRegistry({
   deploymentEnvironment,
   servers,
 }) {
+  const generatedFiles = new Set();
+  const trackGeneratedFile = (filePath) => {
+    generatedFiles.add(filePath);
+  };
+
   await fs.ensureDir(outputRootDir);
   await fs.ensureDir(registryOutputDir);
 
@@ -497,11 +521,13 @@ async function generateRegistry({
     buildRootIndexHtml(registryVersion),
     'utf8',
   );
+  trackGeneratedFile(rootIndexPath);
   await fs.writeFile(
     versionIndexPath,
     buildVersionIndexHtml(registryVersion),
     'utf8',
   );
+  trackGeneratedFile(versionIndexPath);
   const { cloudflareHeadersPath, cloudflareRedirectsPath, noJekyllPath } =
     await writeDeploymentProfileFiles({
       fs,
@@ -513,10 +539,13 @@ async function generateRegistry({
   logger.info(`✓ Wrote ${rootIndexPath}`);
   logger.info(`✓ Wrote ${versionIndexPath}`);
   if (deploymentEnvironment === 'cloudflare') {
+    trackGeneratedFile(cloudflareHeadersPath);
+    trackGeneratedFile(cloudflareRedirectsPath);
     logger.info(`✓ Wrote ${cloudflareHeadersPath}`);
     logger.info(`✓ Wrote ${cloudflareRedirectsPath}`);
   }
   if (deploymentEnvironment === 'github') {
+    trackGeneratedFile(noJekyllPath);
     logger.info(`✓ Wrote ${noJekyllPath}`);
   }
   if (deploymentEnvironment === 'none') {
@@ -539,28 +568,44 @@ async function generateRegistry({
 
   const apiServersResponse = buildServerList(latestServerResponses);
   const serversIndex = buildServersIndex(servers);
-  await writeJsonFile(path.join(registryOutputDir, 'servers.json'), {
+  const serversJsonPath = path.join(registryOutputDir, 'servers.json');
+  await writeJsonFile(serversJsonPath, {
     version: registryVersion,
     generatedAt,
     servers: serversIndex,
   });
+  trackGeneratedFile(serversJsonPath);
 
-  await writeApiCompatJson(path.join(registryOutputDir, 'health'), {
+  const healthBasePath = path.join(registryOutputDir, 'health');
+  await writeApiCompatJson(healthBasePath, {
     status: 'ok',
   });
-  await writeApiCompatJson(path.join(registryOutputDir, 'ping'), {
+  trackGeneratedFile(`${healthBasePath}.json`);
+  trackGeneratedFile(healthBasePath);
+
+  const pingBasePath = path.join(registryOutputDir, 'ping');
+  await writeApiCompatJson(pingBasePath, {
     status: 'ok',
   });
-  await writeApiCompatJson(path.join(registryOutputDir, 'version'), {
+  trackGeneratedFile(`${pingBasePath}.json`);
+  trackGeneratedFile(pingBasePath);
+
+  const versionBasePath = path.join(registryOutputDir, 'version');
+  await writeApiCompatJson(versionBasePath, {
     version: registryVersion,
     generatedAt,
   });
+  trackGeneratedFile(`${versionBasePath}.json`);
+  trackGeneratedFile(versionBasePath);
 
   await fs.ensureDir(path.join(registryOutputDir, 'servers'));
-  await writeJsonFile(
-    path.join(registryOutputDir, 'servers', 'index.json'),
-    apiServersResponse,
+  const serversIndexJsonPath = path.join(
+    registryOutputDir,
+    'servers',
+    'index.json',
   );
+  await writeJsonFile(serversIndexJsonPath, apiServersResponse);
+  trackGeneratedFile(serversIndexJsonPath);
 
   for (const server of servers) {
     const serverPathName = encodeServerNameForPath(server.name);
@@ -579,10 +624,14 @@ async function generateRegistry({
     const versionsIndexData = buildServerList(versionsServerResponses);
     const versionsDir = path.join(serverDir, 'versions');
     await fs.ensureDir(versionsDir);
+    const versionsJsonPath = path.join(serverDir, 'versions.json');
+    const versionsIndexJsonPath = path.join(versionsDir, 'index.json');
     await Promise.all([
-      writeJsonFile(path.join(serverDir, 'versions.json'), versionsIndexData),
-      writeJsonFile(path.join(versionsDir, 'index.json'), versionsIndexData),
+      writeJsonFile(versionsJsonPath, versionsIndexData),
+      writeJsonFile(versionsIndexJsonPath, versionsIndexData),
     ]);
+    trackGeneratedFile(versionsJsonPath);
+    trackGeneratedFile(versionsIndexJsonPath);
 
     for (const version of server.versions) {
       const versionPayload = buildServerResponse({
@@ -592,10 +641,10 @@ async function generateRegistry({
         publishedAt,
         updatedAt,
       });
-      await writeApiCompatJson(
-        path.join(versionsDir, version.version),
-        versionPayload,
-      );
+      const versionBasePath = path.join(versionsDir, version.version);
+      await writeApiCompatJson(versionBasePath, versionPayload);
+      trackGeneratedFile(`${versionBasePath}.json`);
+      trackGeneratedFile(versionBasePath);
     }
 
     const latestPayload = buildServerResponse({
@@ -605,8 +654,13 @@ async function generateRegistry({
       publishedAt,
       updatedAt,
     });
-    await writeApiCompatJson(path.join(versionsDir, 'latest'), latestPayload);
+    const latestBasePath = path.join(versionsDir, 'latest');
+    await writeApiCompatJson(latestBasePath, latestPayload);
+    trackGeneratedFile(`${latestBasePath}.json`);
+    trackGeneratedFile(latestBasePath);
   }
+
+  return Array.from(generatedFiles);
 }
 
 async function createVersionAlias(outputRootDir, registryVersion) {
@@ -615,6 +669,8 @@ async function createVersionAlias(outputRootDir, registryVersion) {
 
   await fs.remove(legacyVersionDir);
   await fs.copy(sourceVersionDir, legacyVersionDir);
+
+  return listFilesRecursively(legacyVersionDir);
 }
 
 async function runRegistryGeneration(options = {}) {
@@ -730,7 +786,7 @@ async function runRegistryGeneration(options = {}) {
     };
   }
 
-  await generateRegistry({
+  const generatedRegistryFiles = await generateRegistry({
     logger,
     outputRootDir,
     registryOutputDir,
@@ -738,7 +794,20 @@ async function runRegistryGeneration(options = {}) {
     deploymentEnvironment,
     servers,
   });
-  await createVersionAlias(outputRootDir, registryVersion);
+  const generatedAliasFiles = await createVersionAlias(
+    outputRootDir,
+    registryVersion,
+  );
+
+  const generatedFiles = Array.from(
+    new Set([...generatedRegistryFiles, ...generatedAliasFiles]),
+  ).sort();
+
+  for (const generatedFile of generatedFiles) {
+    logger.debug(
+      `✓ Generated file: ${path.relative(workspaceRoot, generatedFile)}`,
+    );
+  }
 
   logger.info(`\n✓ Registry generated successfully at ${registryOutputDir}`);
   logger.info(

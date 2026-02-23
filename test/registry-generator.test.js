@@ -8,6 +8,24 @@ const {
   resolveOutputPath,
 } = require('./test-helpers');
 
+async function listFilesRecursively(rootDir) {
+  const entries = await fs.readdir(rootDir);
+  const files = [];
+
+  for (const entry of entries) {
+    const entryPath = path.join(rootDir, entry);
+    const stats = await fs.stat(entryPath);
+    if (stats.isDirectory()) {
+      files.push(...(await listFilesRecursively(entryPath)));
+      continue;
+    }
+
+    files.push(entryPath);
+  }
+
+  return files;
+}
+
 describe('registry-generator', () => {
   let workspaceRoot;
   const encodedServerName = encodeURIComponent('io.github.github/github');
@@ -313,5 +331,43 @@ describe('registry-generator', () => {
 
     expect(thrownError).to.be.instanceOf(Error);
     expect(thrownError.message).to.equal('No valid servers found');
+  });
+
+  it('logs every generated file when log level is debug', async () => {
+    const debugMessages = [];
+    const logger = {
+      level: 'debug',
+      debug: (...args) => {
+        debugMessages.push(args.join(' '));
+      },
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    };
+
+    await runRegistryGeneration({
+      logger,
+      workspaceRoot,
+      sourceDir: './servers',
+      outputDir: './dist',
+      deploymentEnvironment: 'github',
+      schemasDir: path.join(workspaceRoot, 'schemas'),
+    });
+
+    const outputRoot = resolveOutputPath(workspaceRoot);
+    const generatedFiles = await listFilesRecursively(outputRoot);
+    const expectedRelativePaths = new Set(
+      generatedFiles.map((filePath) => path.relative(workspaceRoot, filePath)),
+    );
+    const loggedRelativePaths = new Set(
+      debugMessages
+        .filter((message) => message.startsWith('✓ Generated file: '))
+        .map((message) => message.replace('✓ Generated file: ', '')),
+    );
+
+    expect(loggedRelativePaths.size).to.equal(expectedRelativePaths.size);
+    for (const filePath of expectedRelativePaths) {
+      expect(loggedRelativePaths.has(filePath)).to.equal(true);
+    }
   });
 });
