@@ -9,7 +9,7 @@
     "prepack": "npm run build",
     "generate": "node src/index.js --action-type generate_registry",
     "validate": "node src/index.js --action-type validate_registry",
-    "test": "mocha",
+    "test": "mocha \"test/**/*.test.js\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md,yml,yaml}\"",

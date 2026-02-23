@@ -6,6 +6,28 @@
 
 Static MCP registry generator and GitHub Marketplace Action for producing host-agnostic registry artifacts.
 
+## Live demos
+
+### Cloudflare Pages demo
+
+- Repo: https://github.com/blackoutsecure/bos-mcp-engine-demo
+- Branch: `registry-demo-cf`
+- Site: https://demo.mcp.registry.blackoutsecure.dev/
+
+### GitHub Pages demo
+
+- Repo: https://github.com/blackoutsecure/bos-mcp-engine-demo
+- Branch: `registry-demo-gh`
+- Site: https://demo-gh.mcp.registry.blackoutsecure.dev/
+
+## Company and sponsorship
+
+This project is built and maintained by **Blackout Secure**.
+
+- Company website: https://blackoutsecure.app
+- Organization profile: https://github.com/blackoutsecure
+- Marketplace listing: https://github.com/marketplace/actions/blackout-secure-mcp-registry-engine
+
 ## Specification alignment
 
 - Protocol baseline: MCP Specification 2025-11-25 (`https://modelcontextprotocol.io/specification/2025-11-25`)
