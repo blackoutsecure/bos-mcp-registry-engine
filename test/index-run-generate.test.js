@@ -44,6 +44,7 @@ describe('index generate run', () => {
         env: {
           ...process.env,
           GITHUB_ACTIONS: 'false',
+          GITHUB_WORKSPACE: workspaceRoot,
         },
       },
     );
