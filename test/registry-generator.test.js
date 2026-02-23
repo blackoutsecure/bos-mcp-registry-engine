@@ -166,6 +166,8 @@ describe('registry-generator', () => {
 
     const headers = await fs.readFile(path.join(outputRoot, '_headers'), 'utf8');
     expect(headers).to.contain('X-Robots-Tag: noindex, nofollow');
+    expect(headers).to.contain("script-src-elem 'self' https://static.cloudflareinsights.com");
+    expect(headers).to.contain("connect-src 'self' https://cloudflareinsights.com");
     expect(headers).to.contain('Access-Control-Expose-Headers: ETag, Last-Modified, Cache-Control, Content-Length, Content-Type');
     expect(headers).to.contain('Access-Control-Max-Age: 86400');
   });

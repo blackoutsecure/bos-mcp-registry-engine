@@ -26,7 +26,7 @@ function buildCloudflareHeaders(registryVersion) {
   const sections = [
     buildHeaderSection('/*', [
       'Strict-Transport-Security: max-age=63072000; includeSubDomains; preload',
-      "Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+      "Content-Security-Policy: default-src 'none'; script-src 'self' https://static.cloudflareinsights.com; script-src-elem 'self' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
       'X-Content-Type-Options: nosniff',
       'X-Frame-Options: DENY',
       'Referrer-Policy: no-referrer',
